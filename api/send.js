@@ -10,6 +10,14 @@ module.exports = async (req, res) => {
         return res.status(200).end();
     }
     
+    // GET request returns instructions
+    if (req.method === 'GET') {
+        return res.status(200).json({ 
+            message: 'API is working! Use POST to send messages.',
+            example: { phone: '201158820082', message: 'Hello!' }
+        });
+    }
+    
     const { phone, message } = req.body;
     
     if (!phone || !message) {
@@ -30,6 +38,9 @@ module.exports = async (req, res) => {
         res.status(200).json({ success: true, data: response.data });
     } catch (error) {
         console.error('Send error:', error.response?.data || error.message);
-        res.status(500).json({ success: false, error: error.response?.data || error.message });
+        res.status(500).json({ 
+            success: false, 
+            error: error.response?.data || error.message 
+        });
     }
 };
