@@ -14,24 +14,9 @@ let autoRules = [
     { keywords: ['اخبارك', 'ازيك', 'كيفك', 'how are you'], reply: '👋 أنا بخير، شكراً لسؤالك! كيف يمكنني مساعدتك اليوم؟', active: true }
 ];
 
-// دالة إرسال رسالة واتساب
-async function sendWhatsAppMessage(phone, message) {
+// دالة إرسال رسالة - تستقبل chat_id مباشرة
+async function sendWhatsAppMessage(chat_id, message) {
     try {
-        // تنظيف رقم الهاتف
-        let cleanPhone = phone.toString();
-        cleanPhone = cleanPhone.replace('@c.us', '');
-        cleanPhone = cleanPhone.replace('@lid', '');
-        cleanPhone = cleanPhone.replace('+', '');
-        cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
-        if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
-        
-        // التحقق من أن الرقم صالح
-        if (cleanPhone.length < 10 || cleanPhone.length > 15) {
-            console.log(`⚠️ Invalid phone number: ${cleanPhone}`);
-            return { success: false, error: 'Invalid phone number' };
-        }
-        
-        const chat_id = `${cleanPhone}@c.us`;
         console.log(`📤 Sending to: ${chat_id}`);
         
         const response = await axios.post(
@@ -39,7 +24,8 @@ async function sendWhatsAppMessage(phone, message) {
             { chat_id, text: message },
             { headers: { "token": API_TOKEN, "Content-Type": "application/json" } }
         );
-        console.log(`✅ Sent successfully to ${cleanPhone}`);
+        
+        console.log(`✅ Sent successfully to ${chat_id}`);
         return { success: true };
     } catch (error) {
         console.error('❌ Send failed:', error.response?.data || error.message);
@@ -82,80 +68,54 @@ module.exports = async (req, res) => {
     console.log('📦 Easy Order Webhook received:', new Date().toISOString());
     
     const data = req.body;
-    let rawPhone = null;
+    let rawChatId = null;
     let message = null;
     
-    // التنسيق الصحيح - البيانات في payload
+    // استخراج البيانات من payload
     if (data.payload) {
-        rawPhone = data.payload.from;
+        rawChatId = data.payload.from;
         message = data.payload.body;
     }
     
-    // تنسيق بديل
-    if (!rawPhone && data.from) rawPhone = data.from;
-    if (!message && data.body) message = data.body;
-    if (!message && data.message) message = data.message;
-    
-    console.log(`📱 Raw phone: ${rawPhone}`);
-    console.log(`💬 Message: ${message}`);
-    
-    if (!rawPhone || !message) {
-        console.log('⚠️ Missing phone or message');
+    if (!rawChatId || !message) {
+        console.log('⚠️ Missing chat_id or message');
         return res.status(200).json({ 
             received: true, 
-            error: 'Missing phone or message',
+            error: 'Missing data',
             raw: data 
         });
     }
     
-    // تنظيف رقم الهاتف من @lid أو @c.us
-    let cleanPhone = rawPhone.toString();
-    cleanPhone = cleanPhone.replace('@lid', '');
-    cleanPhone = cleanPhone.replace('@c.us', '');
-    cleanPhone = cleanPhone.replace('+', '');
-    cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
-    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+    console.log(`📱 Original chat_id: ${rawChatId}`);
+    console.log(`💬 Message: ${message}`);
     
-    console.log(`📱 Clean phone: ${cleanPhone}`);
+    // 🔥 المهم: استخدام chat_id الأصلي كما هو
+    // إذا كان يحتوي على @lid أو @c.us، نستخدمه مباشرة
+    const chatId = rawChatId.includes('@') ? rawChatId : `${rawChatId}@c.us`;
     
-    // التحقق من صحة الرقم
-    if (cleanPhone.length < 10 || cleanPhone.length > 15) {
-        console.log(`⚠️ Invalid phone number length: ${cleanPhone.length}`);
-        // حتى لو الرقم غير صالح، نحاول الرد على المعرف الأصلي
-        // نستخدم المعرف الأصلي للإرسال
-        const originalId = rawPhone.includes('@') ? rawPhone : `${rawPhone}@c.us`;
-        console.log(`📤 Trying to send to original ID: ${originalId}`);
-        
-        try {
-            const response = await axios.post(
-                API_URL,
-                { chat_id: originalId, text: '👋 شكراً لتواصلك!' },
-                { headers: { "token": API_TOKEN, "Content-Type": "application/json" } }
-            );
-            console.log(`✅ Sent to original ID`);
-        } catch (err) {
-            console.log(`❌ Failed to send to original ID`);
-        }
-        
-        return res.status(200).json({ 
-            received: true, 
-            note: 'Tried to reply to original ID',
-            originalId: originalId
-        });
-    }
+    console.log(`📤 Sending to chat_id: ${chatId}`);
     
     // البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
-        console.log(`🤖 Auto-reply found: ${autoReply.substring(0, 50)}...`);
-        await sendWhatsAppMessage(cleanPhone, autoReply);
-        return res.status(200).json({ success: true, replied: true, reply: autoReply });
+        console.log(`🤖 Auto-reply: ${autoReply.substring(0, 50)}...`);
+        const result = await sendWhatsAppMessage(chatId, autoReply);
+        return res.status(200).json({ 
+            success: true, 
+            replied: true, 
+            reply: autoReply,
+            chat_id: chatId
+        });
     } else {
         console.log(`⚠️ No auto-reply found for: ${message}`);
-        // رد عام
         const fallback = '👋 شكراً لتواصلك! إذا كان لديك استفسار، اكتب "سعر" أو "طلب" أو "اخبارك"';
-        await sendWhatsAppMessage(cleanPhone, fallback);
-        return res.status(200).json({ success: true, replied: true, reply: fallback });
+        await sendWhatsAppMessage(chatId, fallback);
+        return res.status(200).json({ 
+            success: true, 
+            replied: true, 
+            reply: fallback,
+            chat_id: chatId
+        });
     }
 };
