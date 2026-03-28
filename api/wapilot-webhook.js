@@ -23,19 +23,18 @@ async function sendWhatsAppMessage(phone, message) {
             { chat_id, text: message },
             { headers: { "token": API_TOKEN, "Content-Type": "application/json" } }
         );
-        console.log(`✅ Auto-reply sent to ${phone}: ${message.substring(0, 50)}...`);
-        return { success: true, data: response.data };
+        console.log(`✅ Auto-reply sent to ${phone}`);
+        return { success: true };
     } catch (error) {
         console.error('Send error:', error.response?.data || error.message);
         return { success: false, error: error.response?.data || error.message };
     }
 }
 
-// دالة البحث عن رد تلقائي مناسب
+// دالة البحث عن رد
 function findAutoReply(message) {
     if (!message) return null;
     const lowerMsg = message.toLowerCase();
-    
     for (let rule of autoRules) {
         if (!rule.active) continue;
         for (let keyword of rule.keywords) {
@@ -47,7 +46,7 @@ function findAutoReply(message) {
     return null;
 }
 
-// دالة لحفظ المحادثات (اختياري)
+// تخزين المحادثات
 let conversations = [];
 
 function saveConversation(phone, message, reply) {
@@ -57,22 +56,10 @@ function saveConversation(phone, message, reply) {
         reply,
         timestamp: new Date().toISOString()
     });
-    // الاحتفاظ بآخر 100 محادثة
     if (conversations.length > 100) conversations.pop();
 }
 
-// API الرئيسي
 module.exports = async (req, res) => {
-    // ========== تسجيل كل ما يصل للـ Webhook ==========
-    console.log('========================================');
-    console.log('📡 WEBHOOK RECEIVED AT:', new Date().toISOString());
-    console.log('Method:', req.method);
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('Body:', JSON.stringify(req.body, null, 2));
-    console.log('Query:', JSON.stringify(req.query, null, 2));
-    console.log('========================================');
-    // ==================================================
-    
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
@@ -82,7 +69,7 @@ module.exports = async (req, res) => {
         return res.status(200).end();
     }
     
-    // GET: عرض الحالة والآخر 10 محادثات
+    // GET: عرض الحالة
     if (req.method === 'GET') {
         return res.status(200).json({
             status: 'active',
@@ -94,60 +81,43 @@ module.exports = async (req, res) => {
     }
     
     // POST: استقبال البيانات من Wapilot
-    const data = req.body;
+    console.log('📩 Webhook received:', new Date().toISOString());
     
-    // ========== محاولة استخراج البيانات من جميع التنسيقات الممكنة ==========
+    const data = req.body;
     let phone = null;
     let message = null;
     
-    // التنسيق 1: Wapilot العادي (from, body)
-    if (data.from) phone = data.from;
-    if (data.body) message = data.body;
-    
-    // التنسيق 2: Easy Order (phone, message)
-    if (data.phone) phone = data.phone;
-    if (data.message) message = data.message;
-    
-    // التنسيق 3: داخل كائن message
-    if (data.message?.from) phone = data.message.from;
-    if (data.message?.body) message = data.message.body;
-    if (data.message?.text) message = data.message.text;
-    
-    // التنسيق 4: داخل كائن data
-    if (data.data?.from) phone = data.data.from;
-    if (data.data?.body) message = data.data.body;
-    if (data.data?.message) message = data.data.message;
-    
-    // التنسيق 5: sender, text
-    if (data.sender) phone = data.sender;
-    if (data.text) message = data.text;
-    if (data.content) message = data.content;
-    
-    // التنسيق 6: event + data
-    if (data.event === 'message' && data.data) {
-        phone = data.data.from || data.data.phone;
-        message = data.data.body || data.data.message || data.data.text;
+    // التنسيق الصحيح من Wapilot - البيانات في payload
+    if (data.event === 'message' && data.payload) {
+        // استخراج رقم الهاتف من from (إزالة @lid أو @c.us)
+        if (data.payload.from) {
+            phone = data.payload.from;
+            phone = phone.replace('@lid', '');
+            phone = phone.replace('@c.us', '');
+            phone = phone.replace('+', '');
+            phone = phone.replace(/[^0-9]/g, '');
+            if (phone.startsWith('0')) phone = phone.substring(1);
+        }
+        // استخراج الرسالة من body
+        if (data.payload.body) {
+            message = data.payload.body;
+        }
     }
     
-    // تنظيف رقم الهاتف
-    if (phone) {
-        phone = phone.toString();
-        phone = phone.replace('@c.us', '');
-        phone = phone.replace('+', '');
-        phone = phone.replace(/[^0-9]/g, '');
-        if (phone.startsWith('0')) phone = phone.substring(1);
-    }
+    // تنسيقات بديلة (احتياطي)
+    if (!phone && data.from) phone = data.from;
+    if (!message && data.body) message = data.body;
+    if (!phone && data.phone) phone = data.phone;
+    if (!message && data.message) message = data.message;
     
-    console.log(`📱 Extracted Phone: ${phone}`);
-    console.log(`💬 Extracted Message: ${message}`);
-    // ===================================================================
+    console.log(`📱 Phone: ${phone}`);
+    console.log(`💬 Message: ${message}`);
     
     if (!phone || !message) {
-        console.log('⚠️ Could not extract phone or message from data');
-        console.log('Raw data received:', JSON.stringify(data, null, 2));
+        console.log('⚠️ Missing phone or message');
         return res.status(200).json({
             received: true,
-            error: 'Could not extract phone or message',
+            error: 'Missing phone or message',
             raw: data
         });
     }
@@ -156,29 +126,25 @@ module.exports = async (req, res) => {
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
-        console.log(`🤖 Auto-reply found for "${message}": ${autoReply.substring(0, 50)}...`);
-        const result = await sendWhatsAppMessage(phone, autoReply);
+        console.log(`🤖 Auto-reply: ${autoReply.substring(0, 50)}...`);
+        await sendWhatsAppMessage(phone, autoReply);
         saveConversation(phone, message, autoReply);
         
         return res.status(200).json({
             success: true,
             replied: true,
-            reply: autoReply,
-            result: result,
-            timestamp: new Date().toISOString()
+            reply: autoReply
         });
     } else {
-        console.log(`⚠️ No auto-reply found for message: "${message}"`);
-        const fallbackReply = '👋 شكراً لتواصلك! إذا كان لديك استفسار عن الأسعار، اكتب "سعر". وإذا تريد طلب، اكتب "طلب".';
-        await sendWhatsAppMessage(phone, fallbackReply);
-        saveConversation(phone, message, fallbackReply);
+        console.log(`⚠️ No auto-reply for: ${message}`);
+        const fallback = '👋 شكراً لتواصلك! إذا كان لديك استفسار عن الأسعار، اكتب "سعر". وإذا تريد طلب، اكتب "طلب".';
+        await sendWhatsAppMessage(phone, fallback);
+        saveConversation(phone, message, fallback);
         
         return res.status(200).json({
             success: true,
             replied: true,
-            reply: fallbackReply,
-            note: 'Fallback reply sent',
-            timestamp: new Date().toISOString()
+            reply: fallback
         });
     }
 };
