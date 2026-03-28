@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام واتساب الذكي</title>
+    <title>نظام واتساب الذكي - ردود تلقائية 24 ساعة</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -56,6 +56,27 @@
             margin: 3px;
             display: inline-block;
         }
+        .conversation-messages {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .message-bubble {
+            display: inline-block;
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            margin-bottom: 8px;
+        }
+        .message-incoming {
+            background: #e9ecef;
+            color: #333;
+            border-bottom-right-radius: 4px;
+        }
+        .message-outgoing {
+            background: #667eea;
+            color: white;
+            border-bottom-left-radius: 4px;
+        }
         .loading {
             display: inline-block;
             width: 20px;
@@ -69,13 +90,21 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .webhook-url {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            direction: ltr;
+            text-align: left;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="text-center mb-4">
             <h1 class="text-white">🤖 نظام واتساب الذكي</h1>
-            <p class="text-white">نظام متابعة العملاء وإدارة الطلبات مع ردود تلقائية ذكية</p>
+            <p class="text-white">ردود تلقائية ذكية 24 ساعة | متابعة العملاء | إدارة الطلبات</p>
         </div>
         
         <div class="row mb-4">
@@ -105,11 +134,26 @@
             </div>
         </div>
         
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="card text-center p-2" onclick="showConversations()">
+                    <i class="fas fa-comments fa-1x text-info"></i>
+                    <span>سجل المحادثات</span>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card text-center p-2" onclick="showRulesManager()">
+                    <i class="fas fa-robot fa-1x text-success"></i>
+                    <span>إدارة الردود التلقائية</span>
+                </div>
+            </div>
+        </div>
+        
         <div class="card p-4" id="content">
             <div class="text-center">
                 <i class="fas fa-robot fa-3x text-primary mb-3"></i>
-                <h4>مرحباً بك</h4>
-                <p>اختر إحدى الخدمات من الأعلى</p>
+                <h4>مرحباً بك في نظام واتساب الذكي</h4>
+                <p>اختر إحدى الخدمات من الأعلى للبدء</p>
             </div>
         </div>
     </div>
@@ -119,11 +163,26 @@
         let customers = JSON.parse(localStorage.getItem('customers') || '[]');
         let orders = JSON.parse(localStorage.getItem('orders') || '[]');
         let autoRules = JSON.parse(localStorage.getItem('autoRules') || '[]');
+        let conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
         let welcomeMessage = localStorage.getItem('welcomeMessage') || 'مرحباً {name}! 👋\n\nشكراً لتواصلك معنا. كيف يمكننا مساعدتك اليوم؟';
+        
+        // القواعد الافتراضية إذا لم تكن موجودة
+        if (autoRules.length === 0) {
+            autoRules = [
+                { id: 1, keywords: ['سعر', 'الثمن', 'كم سعر', 'بكام', 'price'], reply: '💰 سعر المنتج هو 100 جنيه مصري. هل تريد معرفة المزيد من التفاصيل؟', active: true },
+                { id: 2, keywords: ['شكرا', 'ممتاز', 'تمام', 'ok', 'شكراً'], reply: '🎉 شكراً لك! نحن في خدمتك دائماً. هل تحتاج لأي شيء آخر؟', active: true },
+                { id: 3, keywords: ['طلب', 'اوردر', 'اطلب', 'order', 'شراء'], reply: '🛍️ مرحباً! لإنشاء طلب جديد، يرجى إرسال:\n1. اسمك الكامل\n2. العنوان\n3. اسم المنتج\n\nسيتم التواصل معك لتأكيد الطلب.', active: true },
+                { id: 4, keywords: ['توصيل', 'الشحن', 'delivery', 'شحن'], reply: '🚚 التوصيل خلال 3-5 أيام عمل. التكلفة 50 جنيهاً للتوصيل داخل القاهرة.', active: true },
+                { id: 5, keywords: ['مرحباً', 'السلام', 'اهلا', 'hello', 'hi'], reply: '👋 أهلاً بك! كيف يمكنني مساعدتك اليوم؟\n\nيمكنك الاستفسار عن:\n- الأسعار 💰\n- الطلبات 🛍️\n- التوصيل 🚚', active: true },
+                { id: 6, keywords: ['رقم', 'تلفون', 'واتساب', 'تواصل'], reply: '📞 يمكنك التواصل معنا عبر:\n- واتساب: 201158820082\n- الهاتف: 01158820082\n- البريد: support@example.com', active: true }
+            ];
+            localStorage.setItem('autoRules', JSON.stringify(autoRules));
+        }
         
         function saveData() {
             localStorage.setItem('customers', JSON.stringify(customers));
             localStorage.setItem('orders', JSON.stringify(orders));
+            localStorage.setItem('conversations', JSON.stringify(conversations));
         }
         
         function saveRules() {
@@ -134,11 +193,10 @@
         // ==================== AUTO REPLY FUNCTIONS ====================
         function getAutoReply(message) {
             const lowerMsg = message.toLowerCase();
-            
             for (let rule of autoRules) {
                 if (!rule.active) continue;
                 for (let keyword of rule.keywords) {
-                    if (lowerMsg.includes(keyword)) {
+                    if (lowerMsg.includes(keyword.toLowerCase())) {
                         return rule.reply;
                     }
                 }
@@ -156,41 +214,82 @@
                 const result = await response.json();
                 if (result.success) {
                     console.log(`✅ Auto message sent to ${phone}`);
+                    return true;
                 }
+                return false;
             } catch (error) {
                 console.error('Auto message error:', error);
+                return false;
             }
         }
         
-        async function processIncomingMessage(phone, message) {
+        async function processIncomingMessage(phone, message, isTest = false) {
             console.log(`📩 رسالة واردة من ${phone}: ${message}`);
             
+            // حفظ المحادثة
+            conversations.unshift({
+                phone: phone,
+                message: message,
+                direction: 'incoming',
+                timestamp: new Date().toISOString(),
+                replied: false
+            });
+            
             const autoReply = getAutoReply(message);
+            let replyMessage = null;
             
             if (autoReply) {
                 console.log(`🤖 رد تلقائي: ${autoReply}`);
-                await sendAutoMessage(phone, autoReply);
-                return { replied: true, message: autoReply };
+                const sent = await sendAutoMessage(phone, autoReply);
+                if (sent) {
+                    replyMessage = autoReply;
+                    conversations.unshift({
+                        phone: phone,
+                        message: autoReply,
+                        direction: 'outgoing',
+                        timestamp: new Date().toISOString(),
+                        isAuto: true
+                    });
+                }
+            } else {
+                // رد عام
+                const fallbackReply = '👋 شكراً لتواصلك! سيتم الرد عليك قريباً. إذا كان لديك استفسار عن الأسعار أو الطلبات، يمكنك كتابة "سعر" أو "طلب"';
+                await sendAutoMessage(phone, fallbackReply);
+                replyMessage = fallbackReply;
+                conversations.unshift({
+                    phone: phone,
+                    message: fallbackReply,
+                    direction: 'outgoing',
+                    timestamp: new Date().toISOString(),
+                    isAuto: true
+                });
             }
             
-            return { replied: false };
+            // الاحتفاظ بآخر 200 محادثة فقط
+            if (conversations.length > 200) conversations = conversations.slice(0, 200);
+            saveData();
+            
+            return { replied: true, message: replyMessage };
         }
         
         function addAutoRule(keywords, reply) {
-            autoRules.push({
+            const newRule = {
                 id: Date.now(),
                 keywords: keywords.split(',').map(k => k.trim().toLowerCase()),
                 reply: reply,
-                active: true
-            });
+                active: true,
+                createdAt: new Date().toISOString()
+            };
+            autoRules.push(newRule);
             saveRules();
-            displayAutoRules();
+            return newRule;
         }
         
         function deleteAutoRule(id) {
             autoRules = autoRules.filter(r => r.id !== id);
             saveRules();
-            displayAutoRules();
+            if (document.getElementById('rulesList')) displayAutoRulesInManager();
+            if (document.getElementById('autoReplyRules')) displayAutoRules();
         }
         
         function toggleRule(id, active) {
@@ -198,7 +297,8 @@
             if (rule) {
                 rule.active = active;
                 saveRules();
-                displayAutoRules();
+                if (document.getElementById('rulesList')) displayAutoRulesInManager();
+                if (document.getElementById('autoReplyRules')) displayAutoRules();
             }
         }
         
@@ -220,15 +320,15 @@
                         </button>
                     </div>
                     <div class="mb-2">
-                        ${rule.keywords.map(k => `<span class="keyword-badge">${k}</span>`).join('')}
+                        ${rule.keywords.map(k => `<span class="keyword-badge">${escapeHtml(k)}</span>`).join('')}
                     </div>
                     <div class="mt-2">
                         <strong>💬 الرد التلقائي:</strong><br>
-                        ${rule.reply}
+                        ${escapeHtml(rule.reply)}
                     </div>
                     <div class="mt-2">
-                        <label class="form-check-label">
-                            <input type="checkbox" class="form-check-input" ${rule.active ? 'checked' : ''} 
+                        <label>
+                            <input type="checkbox" ${rule.active ? 'checked' : ''} 
                                    onchange="toggleRule(${rule.id}, this.checked)">
                             مفعل
                         </label>
@@ -237,30 +337,12 @@
             `).join('');
         }
         
-        function showAddRuleModal() {
-            const keywords = prompt('أدخل الكلمات المفتاحية (مفصولة بفواصل):\nمثال: سعر, كم السعر, الثمن');
-            if (!keywords) return;
-            
-            const reply = prompt('أدخل الرد التلقائي:\nمثال: سعر المنتج هو 100 جنيه');
-            if (!reply) return;
-            
-            addAutoRule(keywords, reply);
-        }
-        
         function saveWelcomeMessage() {
             const newMsg = document.getElementById('welcomeMsgInput').value;
             if (newMsg) {
                 welcomeMessage = newMsg;
                 localStorage.setItem('welcomeMessage', welcomeMessage);
                 alert('✅ تم حفظ رسالة الترحيب');
-            }
-        }
-        
-        function simulateIncomingMessage() {
-            const phone = prompt('رقم الهاتف:');
-            const message = prompt('الرسالة:');
-            if (phone && message) {
-                processIncomingMessage(phone, message);
             }
         }
         
@@ -274,13 +356,11 @@
                 createdAt: new Date().toISOString(),
                 interactions: []
             };
-            
             customers.push(newCustomer);
             saveData();
             
             let welcome = welcomeMessage.replace('{name}', name);
             sendAutoMessage(phone, welcome);
-            
             return newCustomer;
         }
         
@@ -361,6 +441,16 @@
                 if (result.success) {
                     resultDiv.innerHTML = '<div class="alert alert-success">✅ تم إرسال الرسالة بنجاح</div>';
                     document.getElementById('message').value = '';
+                    
+                    // حفظ المحادثة
+                    conversations.unshift({
+                        phone: phone,
+                        message: message,
+                        direction: 'outgoing',
+                        timestamp: new Date().toISOString(),
+                        isAuto: false
+                    });
+                    saveData();
                 } else {
                     resultDiv.innerHTML = `<div class="alert alert-danger">❌ فشل الإرسال: ${result.error}</div>`;
                 }
@@ -380,6 +470,180 @@
                 document.getElementById('phone').value = phone;
                 document.getElementById('message').focus();
             }, 100);
+        }
+        
+        // ==================== CONVERSATIONS ====================
+        function showConversations() {
+            let html = `
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4><i class="fas fa-comments"></i> سجل المحادثات</h4>
+                    <button class="btn btn-outline-danger btn-sm" onclick="clearConversations()">
+                        <i class="fas fa-trash"></i> مسح الكل
+                    </button>
+                </div>
+            `;
+            
+            if (conversations.length === 0) {
+                html += '<div class="alert alert-info">لا توجد محادثات حتى الآن</div>';
+            } else {
+                // تجميع المحادثات حسب الرقم
+                const grouped = {};
+                conversations.forEach(conv => {
+                    if (!grouped[conv.phone]) grouped[conv.phone] = [];
+                    grouped[conv.phone].push(conv);
+                });
+                
+                Object.entries(grouped).forEach(([phone, msgs]) => {
+                    html += `
+                        <div class="card mb-3">
+                            <div class="card-header bg-light d-flex justify-content-between">
+                                <strong>📱 ${escapeHtml(phone)}</strong>
+                                <button class="btn btn-sm btn-primary" onclick="sendTo('${phone}')">
+                                    <i class="fas fa-reply"></i> رد
+                                </button>
+                            </div>
+                            <div class="card-body conversation-messages">
+                    `;
+                    
+                    msgs.slice(-15).forEach(msg => {
+                        const isIncoming = msg.direction === 'incoming';
+                        html += `
+                            <div class="text-${isIncoming ? 'right' : 'left'} mb-2">
+                                <div class="message-bubble ${isIncoming ? 'message-incoming' : 'message-outgoing'}">
+                                    <small class="${isIncoming ? 'text-muted' : 'text-white-50'}">
+                                        ${isIncoming ? '👤 عميل' : (msg.isAuto ? '🤖 بوت' : '📤 أنت')}
+                                    </small><br>
+                                    ${escapeHtml(msg.message)}
+                                    <br><small style="font-size: 10px; opacity: 0.7;">
+                                        ${new Date(msg.timestamp).toLocaleTimeString('ar')}
+                                    </small>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `</div></div>`;
+                });
+            }
+            
+            document.getElementById('content').innerHTML = html;
+        }
+        
+        function clearConversations() {
+            if (confirm('هل أنت متأكد من مسح جميع المحادثات؟')) {
+                conversations = [];
+                saveData();
+                showConversations();
+            }
+        }
+        
+        // ==================== RULES MANAGER ====================
+        function showRulesManager() {
+            document.getElementById('content').innerHTML = `
+                <h4><i class="fas fa-robot"></i> إدارة الردود التلقائية</h4>
+                
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <strong>➕ إضافة قاعدة جديدة</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">الكلمات المفتاحية (مفصولة بفواصل)</label>
+                            <input type="text" class="form-control" id="newKeywords" 
+                                   placeholder="مثال: سعر, كم سعر, الثمن">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">الرد التلقائي</label>
+                            <textarea class="form-control" id="newReply" rows="3" 
+                                      placeholder="مثال: سعر المنتج هو 100 جنيه"></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="addReplyFromUI()">
+                            <i class="fas fa-plus"></i> إضافة القاعدة
+                        </button>
+                    </div>
+                </div>
+                
+                <h5>📋 القواعد الحالية</h5>
+                <div id="rulesList"></div>
+            `;
+            displayAutoRulesInManager();
+        }
+        
+        function addReplyFromUI() {
+            const keywords = document.getElementById('newKeywords').value;
+            const reply = document.getElementById('newReply').value;
+            
+            if (!keywords || !reply) {
+                alert('❌ الرجاء إدخال الكلمات المفتاحية والرد');
+                return;
+            }
+            
+            addAutoRule(keywords, reply);
+            document.getElementById('newKeywords').value = '';
+            document.getElementById('newReply').value = '';
+            displayAutoRulesInManager();
+            alert('✅ تم إضافة قاعدة الرد التلقائي');
+        }
+        
+        function displayAutoRulesInManager() {
+            const container = document.getElementById('rulesList');
+            if (!container) return;
+            
+            if (autoRules.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">لا توجد قواعد. أضف قاعدة جديدة!</div>';
+                return;
+            }
+            
+            container.innerHTML = autoRules.map(rule => `
+                <div class="rule-card">
+                    <div class="d-flex justify-content-between">
+                        <strong>🔑 الكلمات المفتاحية:</strong>
+                        <button class="btn btn-sm btn-danger" onclick="deleteAutoRule(${rule.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="mb-2">
+                        ${rule.keywords.map(k => `<span class="keyword-badge">${escapeHtml(k)}</span>`).join('')}
+                    </div>
+                    <div class="mt-2">
+                        <strong>💬 الرد:</strong><br>
+                        ${escapeHtml(rule.reply)}
+                    </div>
+                    <div class="mt-2">
+                        <label>
+                            <input type="checkbox" ${rule.active ? 'checked' : ''} 
+                                   onchange="toggleRule(${rule.id}, this.checked)">
+                            مفعل
+                        </label>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // ==================== TEST WEBHOOK ====================
+        async function testWebhook() {
+            const phone = prompt('رقم الهاتف للاختبار:', '201158820082');
+            const message = prompt('أدخل رسالة اختبار:', 'سعر المنتج');
+            
+            if (phone && message) {
+                const resultDiv = document.getElementById('content');
+                const originalHtml = resultDiv.innerHTML;
+                resultDiv.innerHTML = '<div class="text-center"><div class="loading"></div><p class="mt-2">جاري اختبار الرد التلقائي...</p></div>';
+                
+                try {
+                    const result = await processIncomingMessage(phone, message, true);
+                    if (result.replied) {
+                        alert(`✅ تم الرد تلقائياً:\n\n${result.message}`);
+                        showConversations();
+                    } else {
+                        alert('⚠️ لا يوجد رد تلقائي لهذه الرسالة');
+                        showDashboard();
+                    }
+                } catch (error) {
+                    alert('❌ خطأ: ' + error.message);
+                    showDashboard();
+                }
+            }
         }
         
         // ==================== UI PAGES ====================
@@ -423,10 +687,18 @@
                         </div>
                     </div>
                 </div>
+                
                 <div class="row mt-4">
                     <div class="col-md-12">
-                        <button class="btn btn-outline-secondary" onclick="simulateIncomingMessage()">
-                            <i class="fas fa-comment-dots"></i> اختبار الرد التلقائي (محاكاة)
+                        <div class="alert alert-info">
+                            <strong>🤖 نظام الرد التلقائي 24 ساعة</strong><br>
+                            <small>Webhook URL: <code class="webhook-url">https://tiger-eta.vercel.app/api/wapilot-webhook</code></small>
+                        </div>
+                        <button class="btn btn-success w-100 mb-2" onclick="testWebhook()">
+                            <i class="fas fa-paper-plane"></i> اختبار الرد التلقائي (محاكاة)
+                        </button>
+                        <button class="btn btn-outline-secondary w-100" onclick="showConversations()">
+                            <i class="fas fa-comments"></i> عرض سجل المحادثات
                         </button>
                     </div>
                 </div>
@@ -442,7 +714,7 @@
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
-                            <tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>التاريخ</th><th>الإجراءات</th> </tr>
+                            <tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>التاريخ</th><th>الإجراءات</th>  </tr>
                         </thead>
                         <tbody>
             `;
@@ -453,8 +725,8 @@
                 customers.forEach((c, i) => {
                     html += `
                         <tr>
-                            <td>${c.name || '-'}</td>
-                            <td>${c.phone}</td>
+                            <td>${escapeHtml(c.name || '-')}</td>
+                            <td>${escapeHtml(c.phone)}</td>
                             <td><span class="badge bg-secondary">${c.status || 'جديد'}</span></td>
                             <td>${new Date(c.createdAt).toLocaleDateString('ar')}</td>
                             <td>
@@ -483,7 +755,7 @@
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
-                            <tr><th>رقم الطلب</th><th>العميل</th><th>الهاتف</th><th>المنتج</th><th>الحالة</th><th>التاريخ</th><th>الإجراءات</th> </tr>
+                            <tr><th>رقم الطلب</th><th>العميل</th><th>الهاتف</th><th>المنتج</th><th>الحالة</th><th>التاريخ</th><th>الإجراءات</th></tr>
                         </thead>
                         <tbody>
             `;
@@ -494,19 +766,15 @@
                 orders.forEach((o, i) => {
                     html += `
                         <tr>
-                            <td><strong>${o.id}</strong></td>
-                            <td>${o.customerName || '-'}</td>
-                            <td>${o.phone || '-'}</td>
-                            <td>${o.product || '-'}</td>
+                            <td><strong>${escapeHtml(o.id)}</strong></td>
+                            <td>${escapeHtml(o.customerName || '-')}</td>
+                            <td>${escapeHtml(o.phone || '-')}</td>
+                            <td>${escapeHtml(o.product || '-')}</td>
                             <td><span class="badge ${o.status === 'pending' ? 'bg-warning' : 'bg-success'}">${o.status === 'pending' ? 'قيد المراجعة' : 'مكتمل'}</span></td>
                             <td>${new Date(o.createdAt).toLocaleDateString('ar')}</td>
                             <td>
-                                <button class="btn btn-sm btn-success" onclick="completeOrder(${i})">
-                                    <i class="fas fa-check"></i> إكمال
-                                </button>
-                                <button class="btn btn-sm btn-danger" onclick="deleteOrder(${i})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                                ${o.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="completeOrder(${i})"><i class="fas fa-check"></i> إكمال</button>` : ''}
+                                <button class="btn btn-sm btn-danger" onclick="deleteOrder(${i})"><i class="fas fa-trash"></i></button>
                             </td>
                         </tr>
                     `;
@@ -539,8 +807,8 @@
                 <h5>📋 الردود التلقائية الذكية</h5>
                 <div class="auto-reply-section">
                     <div id="autoReplyRules"></div>
-                    <button class="btn btn-outline-primary mt-2" onclick="showAddRuleModal()">
-                        <i class="fas fa-plus"></i> إضافة قاعدة رد تلقائي
+                    <button class="btn btn-outline-primary mt-2" onclick="showRulesManager()">
+                        <i class="fas fa-cog"></i> إدارة القواعد
                     </button>
                 </div>
                 
@@ -548,7 +816,7 @@
                 
                 <h5>👋 رسالة الترحيب للعملاء الجدد</h5>
                 <div class="auto-reply-section">
-                    <textarea id="welcomeMsgInput" rows="3" class="form-control">${welcomeMessage}</textarea>
+                    <textarea id="welcomeMsgInput" rows="3" class="form-control">${escapeHtml(welcomeMessage)}</textarea>
                     <button class="btn btn-success mt-2" onclick="saveWelcomeMessage()">
                         <i class="fas fa-save"></i> حفظ رسالة الترحيب
                     </button>
@@ -561,20 +829,29 @@
                     ${customers.map(c => `
                         <div class="col-md-3 mb-2">
                             <button class="btn btn-outline-primary w-100" onclick="selectCustomer('${c.phone}')">
-                                ${c.name || c.phone}
+                                ${escapeHtml(c.name || c.phone)}
                             </button>
                         </div>
                     `).join('')}
                     ${customers.length === 0 ? '<p class="text-muted">لا يوجد عملاء مسجلين</p>' : ''}
                 </div>
             `;
-            
             displayAutoRules();
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
         }
         
         // Load dashboard on start
         showDashboard();
-        console.log('✅ نظام واتساب الذكي جاهز مع الردود التلقائية');
+        console.log('✅ نظام واتساب الذكي جاهز مع الردود التلقائية 24 ساعة');
     </script>
 </body>
 </html>
