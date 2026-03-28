@@ -1,6 +1,7 @@
 const axios = require('axios');
 
 module.exports = async (req, res) => {
+    // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -9,6 +10,7 @@ module.exports = async (req, res) => {
         return res.status(200).end();
     }
     
+    // GET request - للاختبار
     if (req.method === 'GET') {
         return res.status(200).json({ 
             status: 'ok', 
@@ -16,10 +18,11 @@ module.exports = async (req, res) => {
         });
     }
     
+    // POST request - لإرسال الرسائل
     const { phone, message } = req.body;
     
     if (!phone || !message) {
-        return res.status(400).json({ error: 'Phone and message required' });
+        return res.status(400).json({ error: 'Phone and message are required' });
     }
     
     try {
@@ -35,6 +38,10 @@ module.exports = async (req, res) => {
         
         res.status(200).json({ success: true, data: response.data });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.response?.data || error.message });
+        console.error('Send error:', error.response?.data || error.message);
+        res.status(500).json({ 
+            success: false, 
+            error: error.response?.data || error.message 
+        });
     }
 };
