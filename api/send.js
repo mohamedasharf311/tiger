@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
     }
     
     try {
-        const INSTANCE_ID = "instance3532";
+        const INSTANCE_ID = "instance3537";
         const API_TOKEN = "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N";
         const chat_id = `${phone}@c.us`;
         
