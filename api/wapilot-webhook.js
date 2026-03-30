@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 // إعدادات واتساب API
-const INSTANCE_ID = "instance3532";
+const INSTANCE_ID = "instance3537";
 const API_TOKEN = "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N";
 const API_URL = `https://api.wapilot.net/api/v2/${INSTANCE_ID}/send-message`;
 
