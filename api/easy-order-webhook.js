@@ -1,9 +1,21 @@
 const axios = require('axios');
+const { getInstances, sendMessageViaInstance } = require('./auto-reply');
 
-// إعدادات واتساب API
-const INSTANCE_ID = "instance3537";
-const API_TOKEN = "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N";
-const API_URL = `https://api.wapilot.net/api/v2/${INSTANCE_ID}/send-message`;
+// إعدادات الـ Instances المتعددة
+const instances = [
+    {
+        id: "instance3532",
+        token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
+        name: "الرقم الأول",
+        active: true
+    },
+    {
+        id: "instance3537",
+        token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
+        name: "الرقم الثاني",
+        active: true
+    }
+];
 
 // قواعد الردود التلقائية
 let autoRules = [
@@ -13,25 +25,6 @@ let autoRules = [
     { keywords: ['توصيل', 'الشحن', 'delivery'], reply: '🚚 التوصيل خلال 3-5 أيام عمل. التكلفة 50 جنيهاً.', active: true },
     { keywords: ['اخبارك', 'ازيك', 'كيفك', 'how are you'], reply: '👋 أنا بخير، شكراً لسؤالك! كيف يمكنني مساعدتك اليوم؟', active: true }
 ];
-
-// دالة إرسال رسالة - تستقبل chat_id مباشرة
-async function sendWhatsAppMessage(chat_id, message) {
-    try {
-        console.log(`📤 Sending to: ${chat_id}`);
-        
-        const response = await axios.post(
-            API_URL,
-            { chat_id, text: message },
-            { headers: { "token": API_TOKEN, "Content-Type": "application/json" } }
-        );
-        
-        console.log(`✅ Sent successfully to ${chat_id}`);
-        return { success: true };
-    } catch (error) {
-        console.error('❌ Send failed:', error.response?.data || error.message);
-        return { success: false, error: error.response?.data || error.message };
-    }
-}
 
 // دالة البحث عن رد
 function findAutoReply(message) {
@@ -48,6 +41,35 @@ function findAutoReply(message) {
     return null;
 }
 
+// دالة لتحديد أي Instance استقبل الرسالة (بناءً على webhook)
+function getInstanceFromWebhook(data) {
+    // يمكن تحديد الـ Instance من data.webhook_id أو data.instance_id إذا كانت موجودة
+    if (data.instance_id) {
+        return instances.find(inst => inst.id === data.instance_id);
+    }
+    // إذا لم يتم تحديد، نستخدم الـ Instance الأول النشط
+    return instances.find(inst => inst.active);
+}
+
+// دالة إرسال رسالة باستخدام Instance محدد
+async function sendWhatsAppMessage(instance, chat_id, message) {
+    try {
+        console.log(`📤 [${instance.name}] Sending to: ${chat_id}`);
+        
+        const response = await axios.post(
+            `https://api.wapilot.net/api/v2/${instance.id}/send-message`,
+            { chat_id, text: message },
+            { headers: { "token": instance.token, "Content-Type": "application/json" } }
+        );
+        
+        console.log(`✅ [${instance.name}] Sent successfully to ${chat_id}`);
+        return { success: true };
+    } catch (error) {
+        console.error(`❌ [${instance.name}] Send failed:`, error.response?.data || error.message);
+        return { success: false, error: error.response?.data || error.message };
+    }
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
@@ -60,7 +82,8 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
         return res.status(200).json({ 
             status: 'active', 
-            message: 'Easy Order Webhook is running',
+            message: 'Easy Order Webhook is running (Dual Instance)',
+            instances: instances.map(i => ({ id: i.id, name: i.name, active: i.active })),
             timestamp: new Date().toISOString()
         });
     }
@@ -70,11 +93,13 @@ module.exports = async (req, res) => {
     const data = req.body;
     let rawChatId = null;
     let message = null;
+    let webhookInstanceId = null;
     
     // استخراج البيانات من payload
     if (data.payload) {
         rawChatId = data.payload.from;
         message = data.payload.body;
+        webhookInstanceId = data.instance_id || data.webhook_id;
     }
     
     if (!rawChatId || !message) {
@@ -88,11 +113,27 @@ module.exports = async (req, res) => {
     
     console.log(`📱 Original chat_id: ${rawChatId}`);
     console.log(`💬 Message: ${message}`);
+    console.log(`🔌 Webhook Instance: ${webhookInstanceId || 'auto-detect'}`);
     
-    // 🔥 المهم: استخدام chat_id الأصلي كما هو
-    // إذا كان يحتوي على @lid أو @c.us، نستخدمه مباشرة
+    // تحديد أي Instance سيتم استخدامه للرد
+    let targetInstance = null;
+    
+    if (webhookInstanceId) {
+        targetInstance = instances.find(inst => inst.id === webhookInstanceId);
+    }
+    
+    if (!targetInstance) {
+        targetInstance = instances.find(inst => inst.active);
+    }
+    
+    if (!targetInstance) {
+        console.log('⚠️ No active instance available');
+        return res.status(200).json({ received: true, error: 'No active instance' });
+    }
+    
     const chatId = rawChatId.includes('@') ? rawChatId : `${rawChatId}@c.us`;
     
+    console.log(`📤 Using instance: ${targetInstance.name} (${targetInstance.id})`);
     console.log(`📤 Sending to chat_id: ${chatId}`);
     
     // البحث عن رد تلقائي
@@ -100,22 +141,24 @@ module.exports = async (req, res) => {
     
     if (autoReply) {
         console.log(`🤖 Auto-reply: ${autoReply.substring(0, 50)}...`);
-        const result = await sendWhatsAppMessage(chatId, autoReply);
+        const result = await sendWhatsAppMessage(targetInstance, chatId, autoReply);
         return res.status(200).json({ 
             success: true, 
             replied: true, 
             reply: autoReply,
-            chat_id: chatId
+            chat_id: chatId,
+            instance: targetInstance.name
         });
     } else {
         console.log(`⚠️ No auto-reply found for: ${message}`);
         const fallback = '👋 شكراً لتواصلك! إذا كان لديك استفسار، اكتب "سعر" أو "طلب" أو "اخبارك"';
-        await sendWhatsAppMessage(chatId, fallback);
+        await sendWhatsAppMessage(targetInstance, chatId, fallback);
         return res.status(200).json({ 
             success: true, 
             replied: true, 
             reply: fallback,
-            chat_id: chatId
+            chat_id: chatId,
+            instance: targetInstance.name
         });
     }
 };
