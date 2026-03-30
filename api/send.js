@@ -1,6 +1,5 @@
 const axios = require('axios');
 
-// إعدادات الـ Instances المتعددة
 const instances = [
     {
         id: "instance3532",
@@ -31,7 +30,6 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Phone and message required' });
     }
     
-    // تحديد الـ Instance المطلوب
     let targetInstance = null;
     
     if (instanceId) {
