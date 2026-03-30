@@ -30,14 +30,6 @@
         .stat-card:hover {
             transform: translateY(-3px);
         }
-        .btn-custom {
-            background: #667eea;
-            color: white;
-        }
-        .btn-custom:hover {
-            background: #5a67d8;
-            color: white;
-        }
         .auto-reply-section {
             background: #f8f9fa;
             border-radius: 15px;
@@ -106,19 +98,6 @@
             direction: ltr;
             text-align: left;
         }
-        .instance-badge {
-            position: absolute;
-            top: -10px;
-            right: 10px;
-            background: #667eea;
-            color: white;
-            border-radius: 20px;
-            padding: 2px 10px;
-            font-size: 10px;
-        }
-        .instance-card {
-            position: relative;
-        }
         .instance-selector {
             border: 2px solid #667eea;
             border-radius: 10px;
@@ -126,20 +105,12 @@
             margin-bottom: 15px;
             background: white;
         }
-        .followup-card {
-            border-right: 4px solid #ffc107;
+        .table-completed {
+            background-color: #f8f9fa;
+            opacity: 0.8;
         }
-        .status-waiting {
-            background: #ffc107;
-            color: #000;
-        }
-        .status-replied {
-            background: #28a745;
-            color: white;
-        }
-        .status-completed {
-            background: #6c757d;
-            color: white;
+        .badge-purchase {
+            background-color: #28a745;
         }
     </style>
 </head>
@@ -147,7 +118,7 @@
     <div class="container">
         <div class="text-center mb-4">
             <h1 class="text-white">🤖 نظام واتساب الذكي</h1>
-            <p class="text-white">ردود تلقائية ذكية 24 ساعة | دعم رقمين واتساب | متابعة ذكية للعملاء</p>
+            <p class="text-white">ردود تلقائية ذكية 24 ساعة | دعم رقمين واتساب | متابعة ذكية للعملاء | اكتشاف الشراء التلقائي</p>
         </div>
         
         <div class="row mb-4">
@@ -263,13 +234,12 @@
             checkInterval: 30
         };
         
-        // تحميل الإعدادات المحفوظة
         const savedSettings = localStorage.getItem('followUpSettings');
         if (savedSettings) {
             Object.assign(followUpSettings, JSON.parse(savedSettings));
         }
         
-        // القواعد الافتراضية
+        // ==================== AUTO RULES WITH PURCHASE DETECTION ====================
         if (autoRules.length === 0) {
             autoRules = [
                 { id: 1, keywords: ['سعر', 'الثمن', 'كم سعر', 'بكام', 'price'], reply: '💰 سعر المنتج هو 100 جنيه مصري. هل تريد معرفة المزيد من التفاصيل؟', active: true },
@@ -278,7 +248,10 @@
                 { id: 4, keywords: ['توصيل', 'الشحن', 'delivery', 'شحن'], reply: '🚚 التوصيل خلال 3-5 أيام عمل. التكلفة 50 جنيهاً للتوصيل داخل القاهرة.', active: true },
                 { id: 5, keywords: ['مرحباً', 'السلام', 'اهلا', 'hello', 'hi'], reply: '👋 أهلاً بك! كيف يمكنني مساعدتك اليوم؟\n\nيمكنك الاستفسار عن:\n- الأسعار 💰\n- الطلبات 🛍️\n- التوصيل 🚚', active: true },
                 { id: 6, keywords: ['رقم', 'تلفون', 'واتساب', 'تواصل'], reply: '📞 يمكنك التواصل معنا عبر:\n- واتساب: 201158820082\n- الهاتف: 01158820082\n- البريد: support@example.com', active: true },
-                { id: 7, keywords: ['مساعدة', 'help', 'الخدمات'], reply: '📋 الخدمات المتاحة:\n💰 عرض الأسعار\n🛍️ إنشاء طلب جديد\n🚚 معلومات التوصيل\n📞 أرقام التواصل\n\nما الذي تريد معرفته؟', active: true }
+                { id: 7, keywords: ['مساعدة', 'help', 'الخدمات'], reply: '📋 الخدمات المتاحة:\n💰 عرض الأسعار\n🛍️ إنشاء طلب جديد\n🚚 معلومات التوصيل\n📞 أرقام التواصل\n\nما الذي تريد معرفته؟', active: true },
+                // كلمات تدل على إتمام الشراء - هامة لاكتشاف الشراء
+                { id: 8, keywords: ['تم الطلب', 'خلصنا', 'انتهى', 'تم الشراء', 'اشتريت', 'دفعت', 'حولت'], reply: '🎉 شكراً لك على ثقتك! تم تسجيل طلبك بنجاح. سنقوم بتوصيله في أقرب وقت. نتمنى لك يوماً سعيداً!', active: true },
+                { id: 9, keywords: ['اكد الطلب', 'تأكيد', 'confirmed', 'ok تم'], reply: '✅ تم تأكيد طلبك بنجاح! شكراً لك. سيتم إيقاف المتابعة التلقائية.', active: true }
             ];
             localStorage.setItem('autoRules', JSON.stringify(autoRules));
         }
@@ -304,7 +277,6 @@
             localStorage.setItem('followUps', JSON.stringify(followUps));
         }
         
-        // تحميل الـ Instances
         const savedInstances = localStorage.getItem('instances');
         if (savedInstances) {
             instances = JSON.parse(savedInstances);
@@ -343,17 +315,112 @@
             }
         }
         
-        // ==================== FOLLOW-UP FUNCTIONS ====================
+        // ==================== FOLLOW-UP CORE FUNCTIONS ====================
+        
+        // دالة إكمال متابعة العميل (بعد الشراء)
+        function completeCustomerFollowUp(phone, reason = 'purchase_completed') {
+            const followUp = followUps.find(f => f.phone === phone);
+            if (followUp && followUp.status !== 'completed') {
+                followUp.status = 'completed';
+                followUp.completedAt = new Date().toISOString();
+                followUp.completedReason = reason;
+                followUp.updatedAt = new Date().toISOString();
+                saveFollowUpSettings();
+                console.log(`✅ [اكتشاف الشراء] تم إكمال متابعة العميل ${phone} - السبب: ${reason}`);
+                
+                // إضافة رسالة للنظام في المحادثات
+                conversations.unshift({
+                    phone: phone,
+                    message: `✅ [نظام المتابعة] تم إيقاف المتابعة التلقائية لهذا العميل. السبب: ${reason === 'purchase_completed' ? 'تم إتمام عملية الشراء' : reason}`,
+                    direction: 'outgoing',
+                    timestamp: new Date().toISOString(),
+                    isAuto: true,
+                    isSystem: true
+                });
+                saveData();
+                return true;
+            } else if (!followUp) {
+                // إذا لم يكن هناك متابعة، ننشئ واحدة بحالة مكتمل
+                followUps.push({
+                    phone: phone,
+                    name: phone,
+                    lastMessage: 'تم الشراء',
+                    lastMessageTime: new Date().toISOString(),
+                    followUpCount: 0,
+                    lastFollowUpSent: null,
+                    status: 'completed',
+                    completedAt: new Date().toISOString(),
+                    completedReason: reason,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
+                saveFollowUpSettings();
+                console.log(`✅ تم إنشاء متابعة مكتملة للعميل ${phone}`);
+                return true;
+            }
+            return false;
+        }
+        
+        // دالة إنشاء طلب جديد - هنا يكمن السر! 🎯
+        // هذه الدالة هي التي يعرف من خلالها النظام أن العميل اشترى
+        function createNewOrder(customerName, phone, product) {
+            // إنشاء الطلب
+            const newOrder = {
+                id: `ORD-${Date.now()}`,
+                customerName: customerName,
+                phone: phone,
+                product: product,
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+            orders.push(newOrder);
+            saveData();
+            
+            // 🎯🎯🎯 اللحظة الحاسمة: هنا يعرف النظام أن العميل اشترى! 🎯🎯🎯
+            // يتم إيقاف المتابعة التلقائية نهائياً
+            completeCustomerFollowUp(phone, 'purchase_completed');
+            
+            // إضافة العميل لقائمة العملاء إن لم يكن موجوداً
+            const existingCustomer = customers.find(c => c.phone === phone);
+            if (!existingCustomer) {
+                customers.push({
+                    id: Date.now(),
+                    name: customerName,
+                    phone: phone,
+                    status: 'customer',
+                    createdAt: new Date().toISOString()
+                });
+                saveData();
+            }
+            
+            // إرسال رسالة تأكيد
+            sendAutoMessage(phone, `🎉 شكراً لك ${customerName}! تم استلام طلبك رقم ${newOrder.id}\nالمنتج: ${product}\nسيتم التواصل معك للتأكيد.`);
+            
+            return newOrder;
+        }
+        
+        // دالة إضافة أو تحديث متابعة
         function addOrUpdateFollowUp(phone, name, lastMessage, lastMessageTime) {
+            // التحقق: إذا كان العميل قد اشترى بالفعل، لا نضيفه للمتابعة
+            const hasCompletedOrder = orders.some(o => o.phone === phone && (o.status === 'completed' || o.status === 'pending'));
+            if (hasCompletedOrder) {
+                console.log(`⚠️ العميل ${phone} لديه طلب، لن يتم إضافته للمتابعة`);
+                return null;
+            }
+            
             const existing = followUps.find(f => f.phone === phone);
             const now = new Date();
             
             if (existing) {
+                // إذا كان مكتملاً لا نغير حالته
+                if (existing.status === 'completed') return existing;
+                
                 existing.lastMessage = lastMessage;
                 existing.lastMessageTime = lastMessageTime || now.toISOString();
                 existing.updatedAt = now.toISOString();
-                if (existing.status === 'replied') return;
-                existing.status = 'waiting';
+                if (existing.status !== 'replied') {
+                    existing.status = 'waiting';
+                }
             } else {
                 followUps.push({
                     phone: phone,
@@ -369,11 +436,17 @@
             }
             
             saveFollowUpSettings();
+            return followUps.find(f => f.phone === phone);
         }
         
+        // دالة تحديث حالة العميل عند الرد
         function markCustomerReplied(phone) {
+            // لا نغير حالة العميل إذا كان لديه طلب
+            const hasOrder = orders.some(o => o.phone === phone);
+            if (hasOrder) return;
+            
             const followUp = followUps.find(f => f.phone === phone);
-            if (followUp && followUp.status !== 'replied') {
+            if (followUp && followUp.status !== 'completed') {
                 followUp.status = 'replied';
                 followUp.repliedAt = new Date().toISOString();
                 followUp.updatedAt = new Date().toISOString();
@@ -382,6 +455,7 @@
             }
         }
         
+        // دالة فحص وإرسال المتابعات
         async function checkAndSendFollowUps() {
             if (!followUpSettings.enabled) return;
             
@@ -389,9 +463,21 @@
             let sentCount = 0;
             
             for (let followUp of followUps) {
+                // ⚠️ لا نرسل متابعات للعملاء الذين لديهم طلبات (اشتروا)
+                const hasOrder = orders.some(o => o.phone === followUp.phone);
+                if (hasOrder) {
+                    if (followUp.status !== 'completed') {
+                        followUp.status = 'completed';
+                        followUp.completedReason = 'has_order';
+                        saveFollowUpSettings();
+                    }
+                    continue;
+                }
+                
                 if (followUp.status === 'replied' || followUp.status === 'completed') continue;
                 if (followUp.followUpCount >= followUpSettings.maxFollowUps) {
                     followUp.status = 'completed';
+                    followUp.completedReason = 'max_attempts';
                     saveFollowUpSettings();
                     continue;
                 }
@@ -431,7 +517,6 @@
                         });
                         
                         sentCount++;
-                        console.log(`✅ تم إرسال متابعة رقم ${followUp.followUpCount} للعميل ${followUp.phone}`);
                     }
                 }
             }
@@ -466,9 +551,28 @@
         async function processIncomingMessage(phone, message, instanceId = null, isTest = false) {
             console.log(`📩 رسالة واردة من ${phone}: ${message}`);
             
-            markCustomerReplied(phone);
-            addOrUpdateFollowUp(phone, null, message);
+            // 🎯 التحقق: هل تحتوي الرسالة على كلمات تدل على إتمام الشراء؟
+            const purchaseKeywords = ['تم الطلب', 'خلصنا', 'انتهى', 'تم الشراء', 'اشتريت', 'دفعت', 'حولت', 'اكد الطلب', 'تأكيد'];
+            const lowerMsg = message.toLowerCase();
+            const isPurchaseCompletion = purchaseKeywords.some(keyword => lowerMsg.includes(keyword));
             
+            if (isPurchaseCompletion) {
+                console.log(`🎉 [اكتشاف شراء] العميل ${phone} أكمل عملية الشراء!`);
+                // نبحث عن آخر طلب لهذا العميل
+                const existingOrder = orders.find(o => o.phone === phone && o.status === 'pending');
+                if (existingOrder) {
+                    existingOrder.status = 'completed';
+                    existingOrder.completedAt = new Date().toISOString();
+                    saveData();
+                }
+                completeCustomerFollowUp(phone, 'purchase_completed');
+            }
+            
+            // تحديث المتابعة
+            addOrUpdateFollowUp(phone, null, message);
+            markCustomerReplied(phone);
+            
+            // حفظ المحادثة
             conversations.unshift({
                 phone: phone,
                 message: message,
@@ -515,70 +619,44 @@
             return { replied: true, message: replyMessage };
         }
         
-        // ==================== RULES FUNCTIONS ====================
-        function addAutoRule(keywords, reply) {
-            const newRule = {
-                id: Date.now(),
-                keywords: keywords.split(',').map(k => k.trim().toLowerCase()),
-                reply: reply,
-                active: true,
-                createdAt: new Date().toISOString()
-            };
-            autoRules.push(newRule);
-            saveRules();
-            return newRule;
-        }
-        
-        function deleteAutoRule(id) {
-            autoRules = autoRules.filter(r => r.id !== id);
-            saveRules();
-            if (document.getElementById('rulesList')) displayAutoRulesInManager();
-            if (document.getElementById('autoReplyRules')) displayAutoRules();
-        }
-        
-        function toggleRule(id, active) {
-            const rule = autoRules.find(r => r.id === id);
-            if (rule) {
-                rule.active = active;
-                saveRules();
-                if (document.getElementById('rulesList')) displayAutoRulesInManager();
-                if (document.getElementById('autoReplyRules')) displayAutoRules();
+        // ==================== UI FUNCTIONS FOR ORDERS ====================
+        // دالة إضافة طلب من الواجهة
+        function addOrder() {
+            const customerName = prompt('اسم العميل:');
+            const phone = prompt('رقم الهاتف:');
+            const product = prompt('اسم المنتج:');
+            
+            if (customerName && phone && product) {
+                // 🎯 استخدام الدالة الجديدة التي توقف المتابعة تلقائياً
+                createNewOrder(customerName, phone, product);
+                showOrders();
+                alert('✅ تم إضافة الطلب وإيقاف المتابعة التلقائية للعميل');
             }
         }
         
-        function displayAutoRules() {
-            const container = document.getElementById('autoReplyRules');
-            if (!container) return;
-            
-            if (autoRules.length === 0) {
-                container.innerHTML = '<p class="text-muted">لا توجد قواعد. أضف قاعدة جديدة!</p>';
-                return;
+        function completeOrder(index) {
+            const order = orders[index];
+            if (order) {
+                orders[index].status = 'completed';
+                orders[index].completedAt = new Date().toISOString();
+                saveData();
+                
+                // إيقاف المتابعة
+                completeCustomerFollowUp(order.phone, 'purchase_completed');
+                
+                sendAutoMessage(order.phone, '🎉 شكراً لك على ثقتك! تم تأكيد طلبك بنجاح. سنقوم بتوصيله في أقرب وقت. نتمنى لك يوماً سعيداً! 🌟');
+                
+                showOrders();
+                alert('✅ تم إكمال الطلب وإيقاف المتابعة التلقائية');
             }
-            
-            container.innerHTML = autoRules.map(rule => `
-                <div class="rule-card">
-                    <div class="d-flex justify-content-between">
-                        <strong>🔑 الكلمات المفتاحية:</strong>
-                        <button class="btn btn-sm btn-danger" onclick="deleteAutoRule(${rule.id})">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                    <div class="mb-2">
-                        ${rule.keywords.map(k => `<span class="keyword-badge">${escapeHtml(k)}</span>`).join('')}
-                    </div>
-                    <div class="mt-2">
-                        <strong>💬 الرد التلقائي:</strong><br>
-                        ${escapeHtml(rule.reply)}
-                    </div>
-                    <div class="mt-2">
-                        <label>
-                            <input type="checkbox" ${rule.active ? 'checked' : ''} 
-                                   onchange="toggleRule(${rule.id}, this.checked)">
-                            مفعل
-                        </label>
-                    </div>
-                </div>
-            `).join('');
+        }
+        
+        function deleteOrder(index) {
+            if (confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
+                orders.splice(index, 1);
+                saveData();
+                showOrders();
+            }
         }
         
         // ==================== FOLLOW-UP UI ====================
@@ -607,14 +685,22 @@
             
             const waitingCount = followUps.filter(f => f.status === 'waiting').length;
             const repliedCount = followUps.filter(f => f.status === 'replied').length;
+            const completedCount = followUps.filter(f => f.status === 'completed').length;
             const totalFollowUps = followUps.reduce((sum, f) => sum + f.followUpCount, 0);
+            const customersWithOrders = orders.length;
             
             document.getElementById('content').innerHTML = `
                 <h4><i class="fas fa-clock"></i> إعدادات المتابعة الذكية</h4>
                 
-                <div class="alert alert-info">
+                <div class="alert alert-success">
                     <i class="fas fa-info-circle"></i> 
-                    نظام المتابعة الذكي يرسل رسائل تذكير للعملاء الذين لم يردوا على البوت في أوقات محددة.
+                    <strong>كيف يعرف النظام أن العميل اشترى؟</strong><br>
+                    <div class="mt-2">
+                        ✅ <strong>الطريقة الأولى:</strong> عند إنشاء طلب جديد من خلال لوحة التحكم → يتم إيقاف المتابعة فوراً<br>
+                        ✅ <strong>الطريقة الثانية:</strong> عندما يرسل العميل كلمات مثل "تم الطلب" أو "اشتريت" أو "دفعت" → يكتشف النظام الشراء تلقائياً<br>
+                        ✅ <strong>الطريقة الثالثة:</strong> عند إكمال طلب موجود → يتم إيقاف المتابعة<br>
+                        ✅ <strong>الطريقة الرابعة:</strong> إذا كان العميل لديه أي طلب (معلق أو مكتمل) → لا يتم إضافته للمتابعة أبداً
+                    </div>
                 </div>
                 
                 <div class="card mb-3">
@@ -652,9 +738,6 @@
                     <button class="btn btn-secondary ms-2" onclick="showDashboard()">
                         <i class="fas fa-arrow-right"></i> رجوع
                     </button>
-                    <button class="btn btn-warning ms-2" onclick="sendTestFollowUp()">
-                        <i class="fas fa-paper-plane"></i> اختبار إرسال متابعة
-                    </button>
                 </div>
                 
                 <hr class="mt-4">
@@ -662,22 +745,28 @@
                 <h5><i class="fas fa-chart-line"></i> تقرير المتابعات</h5>
                 
                 <div class="row mb-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="alert alert-warning text-center">
                             <strong>${waitingCount}</strong><br>
-                            <small>عملاء في الانتظار</small>
+                            <small>في الانتظار</small>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="alert alert-success text-center">
                             <strong>${repliedCount}</strong><br>
-                            <small>عملاء ردوا</small>
+                            <small>ردوا</small>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <div class="alert alert-secondary text-center">
+                            <strong>${completedCount}</strong><br>
+                            <small>مكتملين (تم الشراء)</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
                         <div class="alert alert-info text-center">
-                            <strong>${totalFollowUps}</strong><br>
-                            <small>رسائل متابعة مرسلة</small>
+                            <strong>${customersWithOrders}</strong><br>
+                            <small>عملاء لديهم طلبات</small>
                         </div>
                     </div>
                 </div>
@@ -689,36 +778,81 @@
                                 <th>العميل</th>
                                 <th>آخر رسالة</th>
                                 <th>محاولات</th>
-                                <th>آخر متابعة</th>
                                 <th>الحالة</th>
-                                <th></th>
+                                <th>سبب الإكمال</th>
+                                <th>الإجراءات</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${followUps.filter(f => f.status !== 'replied').map(f => `
-                                <tr>
-                                    <td>${escapeHtml(f.name || f.phone)}</td>
+                            ${followUps.map((f, idx) => `
+                                <tr class="${f.status === 'completed' ? 'table-secondary' : ''}">
+                                    <td>
+                                        <strong>${escapeHtml(f.name || f.phone)}</strong>
+                                        ${f.completedReason === 'purchase_completed' ? '<span class="badge bg-success ms-1">✅ تم الشراء</span>' : ''}
+                                        ${f.completedReason === 'has_order' ? '<span class="badge bg-info ms-1">📦 لديه طلب</span>' : ''}
+                                    </td>
                                     <td><small>${new Date(f.lastMessageTime).toLocaleString('ar')}</small></td>
-                                    <td>${f.followUpCount}/${followUpSettings.maxFollowUps}</td>
-                                    <td>${f.lastFollowUpSent ? new Date(f.lastFollowUpSent).toLocaleString('ar') : 'لا يوجد'}</td>
+                                    <td>${f.followUpCount > 0 ? `${f.followUpCount}/${followUpSettings.maxFollowUps}` : '-'}</td>
                                     <td>
-                                        <span class="badge ${f.status === 'waiting' ? 'bg-warning' : 'bg-secondary'}">
-                                            ${f.status === 'waiting' ? 'في الانتظار' : 'مكتمل'}
-                                        </span>
-                                    </td>
+                                        ${f.status === 'waiting' ? '<span class="badge bg-warning">⏳ في الانتظار</span>' : 
+                                          f.status === 'replied' ? '<span class="badge bg-success">💬 رد</span>' : 
+                                          '<span class="badge bg-secondary">✅ مكتمل</span>'}
+                                     </td>
                                     <td>
+                                        ${f.completedReason === 'purchase_completed' ? 'تم الشراء' : 
+                                          f.completedReason === 'has_order' ? 'لديه طلب' : 
+                                          f.completedReason === 'max_attempts' ? 'انتهت المحاولات' : '-'}
+                                     </td>
+                                    <td>
+                                        ${f.status !== 'completed' ? `
+                                            <button class="btn btn-sm btn-success" onclick="markAsPurchased('${f.phone}')" title="تسجيل شراء">
+                                                <i class="fas fa-shopping-cart"></i> شراء
+                                            </button>
+                                        ` : `
+                                            <button class="btn btn-sm btn-warning" onclick="resetCustomerFollowUp('${f.phone}')" title="إعادة تفعيل">
+                                                <i class="fas fa-undo"></i> إعادة
+                                            </button>
+                                        `}
                                         <button class="btn btn-sm btn-primary" onclick="sendTo('${f.phone}')">
-                                            <i class="fas fa-reply"></i> رد
+                                            <i class="fas fa-paper-plane"></i> إرسال
                                         </button>
-                                    </td>
-                                </tr>
+                                     </td>
+                                 </tr>
                             `).join('')}
-                            ${followUps.filter(f => f.status !== 'replied').length === 0 ? 
-                                '<tr><td colspan="6" class="text-center">لا توجد متابعات نشطة</td></tr>' : ''}
+                            ${followUps.length === 0 ? '<tr><td colspan="6" class="text-center">لا توجد متابعات</td></tr>' : ''}
                         </tbody>
                     </table>
                 </div>
             `;
+        }
+        
+        // دالة تسجيل شراء يدوي
+        function markAsPurchased(phone) {
+            if (confirm(`هل تريد تسجيل أن العميل ${phone} قام بالشراء؟\nسيتم إيقاف المتابعة التلقائية له.`)) {
+                const product = prompt('اسم المنتج (اختياري):', 'منتج');
+                const customerName = prompt('اسم العميل (اختياري):', phone);
+                
+                createNewOrder(customerName || phone, phone, product || 'منتج');
+                showFollowUpSettings();
+                alert('✅ تم تسجيل الشراء وإيقاف المتابعة');
+            }
+        }
+        
+        function resetCustomerFollowUp(phone) {
+            if (confirm('هل تريد إعادة تفعيل المتابعة لهذا العميل؟')) {
+                const followUp = followUps.find(f => f.phone === phone);
+                if (followUp) {
+                    followUp.status = 'waiting';
+                    followUp.followUpCount = 0;
+                    followUp.lastFollowUpSent = null;
+                    followUp.completedAt = null;
+                    followUp.completedReason = null;
+                    followUp.updatedAt = new Date().toISOString();
+                    saveFollowUpSettings();
+                    alert('✅ تم إعادة تفعيل المتابعة');
+                    showFollowUpSettings();
+                }
+            }
         }
         
         function updateFollowUpSettings() {
@@ -753,133 +887,53 @@
             showFollowUpSettings();
         }
         
-        async function sendTestFollowUp() {
-            const phone = prompt('أدخل رقم الهاتف للاختبار:', '201158820082');
-            if (!phone) return;
-            
-            const message = prompt('أدخل رسالة المتابعة:', 'مرحباً! لاحظت أنك لم ترد بعد. كيف يمكننا مساعدتك؟');
-            if (!message) return;
-            
-            const sent = await sendAutoMessage(phone, message);
-            if (sent) {
-                addOrUpdateFollowUp(phone, phone, 'رسالة اختبار', new Date().toISOString());
-                alert('✅ تم إرسال رسالة المتابعة بنجاح');
-                showFollowUpSettings();
-            } else {
-                alert('❌ فشل إرسال الرسالة');
-            }
-        }
-        
-        // ==================== INSTANCE FUNCTIONS ====================
+        // ==================== REMAINING UI FUNCTIONS ====================
         function showInstances() {
-            let html = `
-                <h4><i class="fas fa-server"></i> إدارة الأرقام (Instances)</h4>
-                <div class="alert alert-info">
-                    <strong>📱 الأرقام النشطة:</strong><br>
-                    يمكنك إدارة الأرقام المتصلة بنظام الردود التلقائية
-                </div>
-                
-                <div class="row">
-            `;
+            let html = `<h4><i class="fas fa-server"></i> إدارة الأرقام</h4>
+                <div class="alert alert-info"><strong>📱 الأرقام النشطة:</strong><br>يمكنك إدارة الأرقام المتصلة</div>
+                <div class="row">`;
             
             instances.forEach((inst, index) => {
-                html += `
-                    <div class="col-md-6 mb-3">
-                        <div class="card ${inst.active ? 'border-success' : 'border-secondary'} instance-card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <h5><i class="fas fa-phone-alt"></i> ${inst.name}</h5>
-                                    <span class="badge ${inst.active ? 'bg-success' : 'bg-secondary'}">
-                                        ${inst.active ? '🟢 نشط' : '⚫ غير نشط'}
-                                    </span>
-                                </div>
-                                <p class="text-muted mt-2">
-                                    <small>ID: ${inst.id}</small><br>
-                                    <small>رقم الهاتف: ${inst.phone || 'غير محدد'}</small>
-                                </p>
-                                <div class="d-flex gap-2 mt-2">
-                                    <button class="btn btn-sm btn-outline-primary" onclick="testInstance('${inst.id}')">
-                                        <i class="fas fa-paper-plane"></i> اختبار
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-warning" onclick="editInstance(${index})">
-                                        <i class="fas fa-edit"></i> تعديل
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteInstance(${index})">
-                                        <i class="fas fa-trash"></i> حذف
-                                    </button>
-                                </div>
+                html += `<div class="col-md-6 mb-3">
+                    <div class="card ${inst.active ? 'border-success' : 'border-secondary'}">
+                        <div class="card-body">
+                            <h5><i class="fas fa-phone-alt"></i> ${inst.name}</h5>
+                            <p class="text-muted">ID: ${inst.id}<br>رقم: ${inst.phone || 'غير محدد'}</p>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-warning" onclick="editInstance(${index})">تعديل</button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteInstance(${index})">حذف</button>
                             </div>
                         </div>
                     </div>
-                `;
+                </div>`;
             });
             
             html += `</div>
-                <div class="card mt-3">
-                    <div class="card-header bg-primary text-white">
-                        <strong>➕ إضافة رقم جديد</strong>
-                    </div>
-                    <div class="card-body">
-                        <div class="row g-2">
-                            <div class="col-md-3">
-                                <input type="text" class="form-control" id="newInstanceId" placeholder="معرف الـ Instance">
-                            </div>
-                            <div class="col-md-3">
-                                <input type="text" class="form-control" id="newInstanceToken" placeholder="Token">
-                            </div>
-                            <div class="col-md-2">
-                                <input type="text" class="form-control" id="newInstanceName" placeholder="اسم الرقم">
-                            </div>
-                            <div class="col-md-2">
-                                <input type="text" class="form-control" id="newInstancePhone" placeholder="رقم الهاتف">
-                            </div>
-                            <div class="col-md-2">
-                                <button class="btn btn-primary w-100" onclick="addNewInstance()">
-                                    <i class="fas fa-plus"></i> إضافة
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="mt-4">
-                    <h6>📌 إعدادات Webhook:</h6>
-                    <div class="webhook-url bg-light p-2 rounded">
-                        https://tiger-eta.vercel.app/api/wapilot-webhook
-                    </div>
-                    <small class="text-muted">قم بتعيين هذا الرابط في كل Instance من لوحة تحكم Wapilot</small>
-                </div>
-            `;
+                <div class="card mt-3"><div class="card-header bg-primary text-white"><strong>➕ إضافة رقم جديد</strong></div>
+                <div class="card-body"><div class="row g-2">
+                    <div class="col-md-3"><input type="text" class="form-control" id="newInstanceId" placeholder="ID"></div>
+                    <div class="col-md-3"><input type="text" class="form-control" id="newInstanceToken" placeholder="Token"></div>
+                    <div class="col-md-2"><input type="text" class="form-control" id="newInstanceName" placeholder="الاسم"></div>
+                    <div class="col-md-2"><input type="text" class="form-control" id="newInstancePhone" placeholder="رقم الهاتف"></div>
+                    <div class="col-md-2"><button class="btn btn-primary w-100" onclick="addNewInstance()">إضافة</button></div>
+                </div></div></div>`;
             
             document.getElementById('content').innerHTML = html;
         }
         
-        function testInstance(instanceId) {
-            const instance = instances.find(i => i.id === instanceId);
-            alert(`🧪 اختبار الـ Instance: ${instance.name}\n\nID: ${instance.id}\nالحالة: ${instance.active ? 'نشط' : 'غير نشط'}`);
-        }
-        
         function editInstance(index) {
             const inst = instances[index];
-            const newName = prompt('أدخل الاسم الجديد:', inst.name);
-            const newPhone = prompt('أدخل رقم الهاتف الجديد:', inst.phone || '');
-            const newActive = confirm(`هل تريد تفعيل ${inst.name}؟\nOK = مفعل، Cancel = غير مفعل`);
-            
+            const newName = prompt('الاسم الجديد:', inst.name);
             if (newName) inst.name = newName;
-            if (newPhone) inst.phone = newPhone;
-            inst.active = newActive;
-            
             saveInstances();
             showInstances();
-            alert('✅ تم تحديث الـ Instance');
         }
         
         function deleteInstance(index) {
-            if (confirm('هل أنت متأكد من حذف هذا الرقم؟')) {
+            if (confirm('حذف هذا الرقم؟')) {
                 instances.splice(index, 1);
                 saveInstances();
                 showInstances();
-                alert('✅ تم حذف الرقم');
             }
         }
         
@@ -887,618 +941,154 @@
             const id = document.getElementById('newInstanceId').value;
             const token = document.getElementById('newInstanceToken').value;
             const name = document.getElementById('newInstanceName').value;
-            const phone = document.getElementById('newInstancePhone').value;
-            
-            if (!id || !token || !name) {
-                alert('❌ الرجاء إدخال ID و Token واسم الرقم');
-                return;
-            }
-            
-            instances.push({
-                id, token, name, phone: phone || '',
-                active: true,
-                createdAt: new Date().toISOString()
+            if (id && token && name) {
+                instances.push({ id, token, name, phone: '', active: true, createdAt: new Date().toISOString() });
+                saveInstances();
+                showInstances();
+            } else alert('املأ جميع الحقول');
+        }
+        
+        function showCustomers() {
+            let html = `<div class="d-flex justify-content-between"><h4>العملاء</h4><button class="btn btn-primary" onclick="addCustomer()">➕ إضافة</button></div>
+                <table class="table"><thead><tr><th>الاسم</th><th>الهاتف</th><th>التاريخ</th><th></th></tr></thead><tbody>`;
+            customers.forEach((c, i) => {
+                html += `<tr><td>${escapeHtml(c.name)}</td><td>${c.phone}</td><td>${new Date(c.createdAt).toLocaleDateString()}</td>
+                    <td><button class="btn btn-sm btn-primary" onclick="sendTo('${c.phone}')">إرسال</button></td></tr>`;
             });
-            saveInstances();
-            
-            document.getElementById('newInstanceId').value = '';
-            document.getElementById('newInstanceToken').value = '';
-            document.getElementById('newInstanceName').value = '';
-            document.getElementById('newInstancePhone').value = '';
-            
-            showInstances();
-            alert(`✅ تم إضافة الرقم ${name} بنجاح`);
-        }
-        
-        // ==================== CUSTOMER FUNCTIONS ====================
-        function addCustomerWithWelcome(name, phone) {
-            const newCustomer = {
-                id: Date.now(),
-                name: name,
-                phone: phone,
-                status: 'new',
-                createdAt: new Date().toISOString(),
-                interactions: []
-            };
-            customers.push(newCustomer);
-            saveData();
-            
-            let welcome = welcomeMessage.replace('{name}', name);
-            sendAutoMessage(phone, welcome, currentSelectedInstance.id);
-            return newCustomer;
-        }
-        
-        function addCustomer() {
-            const name = prompt('أدخل اسم العميل:');
-            const phone = prompt('أدخل رقم الهاتف:');
-            if (name && phone) {
-                addCustomerWithWelcome(name, phone);
-                showCustomers();
-                alert('✅ تم إضافة العميل وإرسال رسالة ترحيب');
-            }
-        }
-        
-        function deleteCustomer(index) {
-            if (confirm('هل أنت متأكد من حذف هذا العميل؟')) {
-                customers.splice(index, 1);
-                saveData();
-                showCustomers();
-            }
-        }
-        
-        // ==================== ORDER FUNCTIONS ====================
-        function addOrder() {
-            const customerName = prompt('اسم العميل:');
-            const phone = prompt('رقم الهاتف:');
-            const product = prompt('اسم المنتج:');
-            if (customerName && phone && product) {
-                orders.push({
-                    id: `ORD-${Date.now()}`,
-                    customerName: customerName,
-                    phone: phone,
-                    product: product,
-                    status: 'pending',
-                    createdAt: new Date().toISOString()
-                });
-                saveData();
-                showOrders();
-                alert('✅ تم إضافة الطلب');
-            }
-        }
-        
-        function completeOrder(index) {
-            orders[index].status = 'completed';
-            saveData();
-            showOrders();
-        }
-        
-        function deleteOrder(index) {
-            if (confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
-                orders.splice(index, 1);
-                saveData();
-                showOrders();
-            }
-        }
-        
-        // ==================== SEND MESSAGE ====================
-        async function sendMessage() {
-            const phone = document.getElementById('phone').value;
-            const message = document.getElementById('message').value;
-            const instanceId = document.getElementById('instanceSelector')?.value || currentSelectedInstance.id;
-            const resultDiv = document.getElementById('sendResult');
-            
-            if (!phone || !message) {
-                alert('❌ الرجاء إدخال رقم الهاتف والرسالة');
-                return;
-            }
-            
-            resultDiv.innerHTML = '<div class="alert alert-info">📡 جاري الإرسال...</div>';
-            
-            try {
-                const response = await fetch('/api/send', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone, message, instanceId })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    resultDiv.innerHTML = `<div class="alert alert-success">✅ تم إرسال الرسالة بنجاح عبر ${result.instance || 'الرقم المحدد'}</div>`;
-                    document.getElementById('message').value = '';
-                    
-                    conversations.unshift({
-                        phone: phone,
-                        message: message,
-                        direction: 'outgoing',
-                        timestamp: new Date().toISOString(),
-                        isAuto: false,
-                        instanceId: instanceId
-                    });
-                    saveData();
-                } else {
-                    resultDiv.innerHTML = `<div class="alert alert-danger">❌ فشل الإرسال: ${result.error}</div>`;
-                }
-            } catch (error) {
-                resultDiv.innerHTML = `<div class="alert alert-danger">❌ خطأ: ${error.message}</div>`;
-            }
-        }
-        
-        function selectCustomer(phone) {
-            document.getElementById('phone').value = phone;
-            document.getElementById('message').focus();
-        }
-        
-        function sendTo(phone) {
-            showSend();
-            setTimeout(() => {
-                document.getElementById('phone').value = phone;
-                document.getElementById('message').focus();
-            }, 100);
-        }
-        
-        // ==================== CONVERSATIONS ====================
-        function showConversations() {
-            let html = `
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4><i class="fas fa-comments"></i> سجل المحادثات</h4>
-                    <button class="btn btn-outline-danger btn-sm" onclick="clearConversations()">
-                        <i class="fas fa-trash"></i> مسح الكل
-                    </button>
-                </div>
-            `;
-            
-            if (conversations.length === 0) {
-                html += '<div class="alert alert-info">لا توجد محادثات حتى الآن</div>';
-            } else {
-                const grouped = {};
-                conversations.forEach(conv => {
-                    if (!grouped[conv.phone]) grouped[conv.phone] = [];
-                    grouped[conv.phone].push(conv);
-                });
-                
-                Object.entries(grouped).forEach(([phone, msgs]) => {
-                    const instanceInfo = msgs.find(m => m.instanceId);
-                    const instanceName = instanceInfo ? instances.find(i => i.id === instanceInfo.instanceId)?.name : 'غير محدد';
-                    
-                    html += `
-                        <div class="card mb-3">
-                            <div class="card-header bg-light d-flex justify-content-between">
-                                <div>
-                                    <strong>📱 ${escapeHtml(phone)}</strong>
-                                    ${instanceName ? `<small class="text-muted ms-2">(عبر: ${instanceName})</small>` : ''}
-                                </div>
-                                <button class="btn btn-sm btn-primary" onclick="sendTo('${phone}')">
-                                    <i class="fas fa-reply"></i> رد
-                                </button>
-                            </div>
-                            <div class="card-body conversation-messages">
-                    `;
-                    
-                    msgs.slice(-15).forEach(msg => {
-                        const isIncoming = msg.direction === 'incoming';
-                        const isFollowUp = msg.isFollowUp;
-                        const msgInstance = msg.instanceId ? instances.find(i => i.id === msg.instanceId)?.name : '';
-                        
-                        html += `
-                            <div class="text-${isIncoming ? 'right' : 'left'} mb-2">
-                                <div class="message-bubble ${isIncoming ? 'message-incoming' : 'message-outgoing'} ${isFollowUp ? 'followup-message' : ''}" 
-                                     style="${isFollowUp && !isIncoming ? 'background: #fff3cd; color: #856404;' : ''}">
-                                    <small class="${isIncoming ? 'text-muted' : 'text-white-50'}">
-                                        ${isIncoming ? '👤 عميل' : (msg.isFollowUp ? '⏰ متابعة' : (msg.isAuto ? '🤖 بوت' : '📤 أنت'))}
-                                        ${msgInstance ? ` <span class="badge bg-secondary" style="font-size: 8px;">${msgInstance}</span>` : ''}
-                                        ${msg.followUpNumber ? ` <span class="badge bg-warning" style="font-size: 8px;">محاولة ${msg.followUpNumber}</span>` : ''}
-                                    </small><br>
-                                    ${escapeHtml(msg.message)}
-                                    <br><small style="font-size: 10px; opacity: 0.7;">
-                                        ${new Date(msg.timestamp).toLocaleString('ar')}
-                                    </small>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    
-                    html += `</div></div>`;
-                });
-            }
-            
+            html += `</tbody></table>`;
             document.getElementById('content').innerHTML = html;
         }
         
-        function clearConversations() {
-            if (confirm('هل أنت متأكد من مسح جميع المحادثات؟')) {
-                conversations = [];
+        function addCustomer() {
+            const name = prompt('الاسم:');
+            const phone = prompt('الهاتف:');
+            if (name && phone) {
+                customers.push({ id: Date.now(), name, phone, status: 'new', createdAt: new Date().toISOString() });
                 saveData();
-                showConversations();
+                showCustomers();
             }
         }
         
-        // ==================== RULES MANAGER ====================
+        function showOrders() {
+            let html = `<div class="d-flex justify-content-between"><h4>الطلبات</h4><button class="btn btn-primary" onclick="addOrder()">➕ إضافة طلب</button></div>
+                <table class="table"><thead><tr><th>رقم</th><th>العميل</th><th>المنتج</th><th>الحالة</th><th></th></tr></thead><tbody>`;
+            orders.forEach((o, i) => {
+                html += `<tr><td>${o.id}</td><td>${escapeHtml(o.customerName)}</td><td>${o.product}</td>
+                    <td><span class="badge ${o.status === 'pending' ? 'bg-warning' : 'bg-success'}">${o.status === 'pending' ? 'قيد المراجعة' : 'مكتمل'}</span></td>
+                    <td>${o.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="completeOrder(${i})">إكمال</button>` : ''}
+                    <button class="btn btn-sm btn-danger" onclick="deleteOrder(${i})">حذف</button></td></tr>`;
+            });
+            html += `</tbody></table>`;
+            document.getElementById('content').innerHTML = html;
+        }
+        
+        function showSend() {
+            const instanceOptions = instances.filter(i => i.active).map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+            document.getElementById('content').innerHTML = `
+                <h4>إرسال رسالة</h4>
+                <select class="form-select mb-3" id="instanceSelector">${instanceOptions}</select>
+                <input type="text" class="form-control mb-2" id="phone" placeholder="رقم الهاتف">
+                <textarea class="form-control mb-2" id="message" rows="4" placeholder="الرسالة"></textarea>
+                <button class="btn btn-primary" onclick="sendMessage()">إرسال</button>
+                <div id="sendResult" class="mt-2"></div>
+                <hr><h5>الردود التلقائية</h5><div id="autoReplyRules"></div>`;
+            displayAutoRules();
+        }
+        
+        async function sendMessage() {
+            const phone = document.getElementById('phone').value;
+            const message = document.getElementById('message').value;
+            const instanceId = document.getElementById('instanceSelector').value;
+            const result = await sendAutoMessage(phone, message, instanceId);
+            document.getElementById('sendResult').innerHTML = result ? '<div class="alert alert-success">✅ تم الإرسال</div>' : '<div class="alert alert-danger">❌ فشل</div>';
+        }
+        
+        function showConversations() {
+            let html = `<h4>سجل المحادثات</h4><div class="conversation-messages">`;
+            conversations.slice().reverse().forEach(msg => {
+                const isIncoming = msg.direction === 'incoming';
+                html += `<div class="text-${isIncoming ? 'right' : 'left'} mb-2">
+                    <div class="message-bubble ${isIncoming ? 'message-incoming' : 'message-outgoing'}">
+                        <small>${isIncoming ? '👤 عميل' : (msg.isAuto ? '🤖 بوت' : '📤 أنت')}</small><br>
+                        ${escapeHtml(msg.message)}<br>
+                        <small>${new Date(msg.timestamp).toLocaleString()}</small>
+                    </div>
+                </div>`;
+            });
+            html += `</div>`;
+            document.getElementById('content').innerHTML = html;
+        }
+        
         function showRulesManager() {
             document.getElementById('content').innerHTML = `
-                <h4><i class="fas fa-robot"></i> إدارة الردود التلقائية</h4>
-                
-                <div class="card mb-3">
-                    <div class="card-header bg-primary text-white">
-                        <strong>➕ إضافة قاعدة جديدة</strong>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">الكلمات المفتاحية (مفصولة بفواصل)</label>
-                            <input type="text" class="form-control" id="newKeywords" 
-                                   placeholder="مثال: سعر, كم سعر, الثمن">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">الرد التلقائي</label>
-                            <textarea class="form-control" id="newReply" rows="3" 
-                                      placeholder="مثال: سعر المنتج هو 100 جنيه"></textarea>
-                        </div>
-                        <button class="btn btn-primary" onclick="addReplyFromUI()">
-                            <i class="fas fa-plus"></i> إضافة القاعدة
-                        </button>
-                    </div>
-                </div>
-                
-                <h5>📋 القواعد الحالية</h5>
-                <div id="rulesList"></div>
-            `;
+                <h4>إدارة الردود التلقائية</h4>
+                <div class="card mb-3"><div class="card-header bg-primary text-white">➕ إضافة قاعدة</div>
+                <div class="card-body"><input type="text" class="form-control mb-2" id="newKeywords" placeholder="كلمات مفتاحية (مفصولة بفواصل)">
+                <textarea class="form-control mb-2" id="newReply" rows="3" placeholder="الرد"></textarea>
+                <button class="btn btn-primary" onclick="addReplyFromUI()">إضافة</button></div></div>
+                <div id="rulesList"></div>`;
             displayAutoRulesInManager();
         }
         
         function addReplyFromUI() {
             const keywords = document.getElementById('newKeywords').value;
             const reply = document.getElementById('newReply').value;
-            
-            if (!keywords || !reply) {
-                alert('❌ الرجاء إدخال الكلمات المفتاحية والرد');
-                return;
+            if (keywords && reply) {
+                addAutoRule(keywords, reply);
+                displayAutoRulesInManager();
             }
-            
-            addAutoRule(keywords, reply);
-            document.getElementById('newKeywords').value = '';
-            document.getElementById('newReply').value = '';
+        }
+        
+        function addAutoRule(keywords, reply) {
+            autoRules.push({ id: Date.now(), keywords: keywords.split(',').map(k => k.trim()), reply, active: true });
+            saveRules();
+        }
+        
+        function deleteAutoRule(id) {
+            autoRules = autoRules.filter(r => r.id !== id);
+            saveRules();
             displayAutoRulesInManager();
-            alert('✅ تم إضافة قاعدة الرد التلقائي');
+        }
+        
+        function displayAutoRules() {
+            const container = document.getElementById('autoReplyRules');
+            if (!container) return;
+            container.innerHTML = autoRules.map(rule => `<div class="rule-card"><strong>${rule.keywords.join(', ')}</strong><br>${rule.reply}</div>`).join('');
         }
         
         function displayAutoRulesInManager() {
             const container = document.getElementById('rulesList');
             if (!container) return;
-            
-            if (autoRules.length === 0) {
-                container.innerHTML = '<div class="alert alert-info">لا توجد قواعد. أضف قاعدة جديدة!</div>';
-                return;
-            }
-            
-            container.innerHTML = autoRules.map(rule => `
-                <div class="rule-card">
-                    <div class="d-flex justify-content-between">
-                        <strong>🔑 الكلمات المفتاحية:</strong>
-                        <button class="btn btn-sm btn-danger" onclick="deleteAutoRule(${rule.id})">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                    <div class="mb-2">
-                        ${rule.keywords.map(k => `<span class="keyword-badge">${escapeHtml(k)}</span>`).join('')}
-                    </div>
-                    <div class="mt-2">
-                        <strong>💬 الرد:</strong><br>
-                        ${escapeHtml(rule.reply)}
-                    </div>
-                    <div class="mt-2">
-                        <label>
-                            <input type="checkbox" ${rule.active ? 'checked' : ''} 
-                                   onchange="toggleRule(${rule.id}, this.checked)">
-                            مفعل
-                        </label>
-                    </div>
-                </div>
-            `).join('');
+            container.innerHTML = autoRules.map(rule => `<div class="rule-card d-flex justify-content-between"><div><strong>${rule.keywords.join(', ')}</strong><br>${rule.reply}</div><button class="btn btn-sm btn-danger" onclick="deleteAutoRule(${rule.id})">حذف</button></div>`).join('');
         }
         
-        // ==================== TEST WEBHOOK ====================
-        async function testWebhook() {
-            const phone = prompt('رقم الهاتف للاختبار:', '201158820082');
-            const message = prompt('أدخل رسالة اختبار:', 'سعر المنتج');
-            const instanceId = prompt('معرف الـ Instance (اتركه فارغاً للاختيار التلقائي):', '');
-            
-            if (phone && message) {
-                const resultDiv = document.getElementById('content');
-                resultDiv.innerHTML = '<div class="text-center"><div class="loading"></div><p class="mt-2">جاري اختبار الرد التلقائي...</p></div>';
-                
-                try {
-                    const result = await processIncomingMessage(phone, message, instanceId || null, true);
-                    if (result.replied) {
-                        alert(`✅ تم الرد تلقائياً:\n\n${result.message}`);
-                        showConversations();
-                    } else {
-                        alert('⚠️ لا يوجد رد تلقائي لهذه الرسالة');
-                        showDashboard();
-                    }
-                } catch (error) {
-                    alert('❌ خطأ: ' + error.message);
-                    showDashboard();
-                }
-            }
-        }
-        
-        // ==================== UI PAGES ====================
         function showDashboard() {
-            const activeInstances = instances.filter(i => i.active).length;
-            const waitingFollowUps = followUps.filter(f => f.status === 'waiting').length;
-            const totalFollowUps = followUps.reduce((sum, f) => sum + f.followUpCount, 0);
-            
-            const stats = {
-                totalCustomers: customers.length,
-                activeCustomers: customers.filter(c => c.status === 'active').length,
-                totalOrders: orders.length,
-                pendingOrders: orders.filter(o => o.status === 'pending').length
-            };
-            
-            let html = `
-                <h4><i class="fas fa-chart-line"></i> لوحة التحكم</h4>
-                <div class="row mt-4">
-                    <div class="col-md-3">
-                        <div class="stat-card">
-                            <i class="fas fa-users fa-2x text-primary"></i>
-                            <h3>${stats.totalCustomers}</h3>
-                            <p>إجمالي العملاء</p>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card">
-                            <i class="fas fa-check-circle fa-2x text-success"></i>
-                            <h3>${stats.activeCustomers}</h3>
-                            <p>عملاء نشطين</p>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card">
-                            <i class="fas fa-shopping-cart fa-2x text-warning"></i>
-                            <h3>${stats.totalOrders}</h3>
-                            <p>إجمالي الطلبات</p>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card">
-                            <i class="fas fa-server fa-2x text-info"></i>
-                            <h3>${activeInstances}</h3>
-                            <p>أرقام نشطة</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="row mt-3">
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <i class="fas fa-clock fa-2x text-warning"></i>
-                            <h3>${waitingFollowUps}</h3>
-                            <p>عملاء ينتظرون المتابعة</p>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <i class="fas fa-envelope fa-2x text-info"></i>
-                            <h3>${totalFollowUps}</h3>
-                            <p>رسائل متابعة مرسلة</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="row mt-4">
-                    <div class="col-md-12">
-                        <div class="alert alert-info">
-                            <strong>🤖 نظام الرد التلقائي 24 ساعة - دعم رقمين واتساب - متابعة ذكية</strong><br>
-                            <small>Webhook URL: <code class="webhook-url">https://tiger-eta.vercel.app/api/wapilot-webhook</code></small>
-                            <hr>
-                            <strong>📱 الأرقام النشطة:</strong><br>
-                            ${instances.filter(i => i.active).map(i => `• ${i.name} (${i.id})`).join('<br>') || 'لا توجد أرقام نشطة'}
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <button class="btn btn-success w-100 mb-2" onclick="testWebhook()">
-                                    <i class="fas fa-paper-plane"></i> اختبار الرد التلقائي
-                                </button>
-                            </div>
-                            <div class="col-md-6">
-                                <button class="btn btn-warning w-100 mb-2" onclick="showFollowUpSettings()">
-                                    <i class="fas fa-clock"></i> إدارة المتابعة الذكية
-                                </button>
-                            </div>
-                        </div>
-                        <button class="btn btn-outline-secondary w-100" onclick="showConversations()">
-                            <i class="fas fa-comments"></i> عرض سجل المحادثات
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.getElementById('content').innerHTML = html;
-        }
-        
-        function showCustomers() {
-            let html = `
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4><i class="fas fa-users"></i> قائمة العملاء</h4>
-                    <button class="btn btn-primary" onclick="addCustomer()">➕ إضافة عميل</button>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>التاريخ</th><th>الإجراءات</th> </tr>
-                        </thead>
-                        <tbody>
-            `;
-            
-            if (customers.length === 0) {
-                html += '<tr><td colspan="5" class="text-center">لا يوجد عملاء</td></tr>';
-            } else {
-                customers.forEach((c, i) => {
-                    html += `
-                        <tr>
-                            <td>${escapeHtml(c.name || '-')}</td>
-                            <td>${escapeHtml(c.phone)}</td>
-                            <td><span class="badge bg-secondary">${c.status || 'جديد'}</span></td>
-                            <td>${new Date(c.createdAt).toLocaleDateString('ar')}</td>
-                            <td>
-                                <button class="btn btn-sm btn-primary" onclick="sendTo('${c.phone}')">
-                                    <i class="fas fa-paper-plane"></i> إرسال
-                                </button>
-                                <button class="btn btn-sm btn-danger" onclick="deleteCustomer(${i})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            }
-            
-            html += `</tbody></table></div>`;
-            document.getElementById('content').innerHTML = html;
-        }
-        
-        function showOrders() {
-            let html = `
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4><i class="fas fa-shopping-cart"></i> الطلبات</h4>
-                    <button class="btn btn-primary" onclick="addOrder()">➕ إضافة طلب</button>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr><th>رقم الطلب</th><th>العميل</th><th>الهاتف</th><th>المنتج</th><th>الحالة</th><th>التاريخ</th><th>الإجراءات</th></tr>
-                        </thead>
-                        <tbody>
-            `;
-            
-            if (orders.length === 0) {
-                html += '<tr><td colspan="7" class="text-center">لا توجد طلبات</td></tr>';
-            } else {
-                orders.forEach((o, i) => {
-                    html += `
-                        <tr>
-                            <td><strong>${escapeHtml(o.id)}</strong></td>
-                            <td>${escapeHtml(o.customerName || '-')}</td>
-                            <td>${escapeHtml(o.phone || '-')}</td>
-                            <td>${escapeHtml(o.product || '-')}</td>
-                            <td><span class="badge ${o.status === 'pending' ? 'bg-warning' : 'bg-success'}">${o.status === 'pending' ? 'قيد المراجعة' : 'مكتمل'}</span></td>
-                            <td>${new Date(o.createdAt).toLocaleDateString('ar')}</td>
-                            <td>
-                                ${o.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="completeOrder(${i})"><i class="fas fa-check"></i> إكمال</button>` : ''}
-                                <button class="btn btn-sm btn-danger" onclick="deleteOrder(${i})"><i class="fas fa-trash"></i></button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            }
-            
-            html += `</tbody></table></div>`;
-            document.getElementById('content').innerHTML = html;
-        }
-        
-        function showSend() {
-            const instanceOptions = instances.filter(i => i.active).map(i => 
-                `<option value="${i.id}" ${currentSelectedInstance.id === i.id ? 'selected' : ''}>${i.name} (${i.id})</option>`
-            ).join('');
-            
+            const waitingCount = followUps.filter(f => f.status === 'waiting').length;
+            const completedCount = followUps.filter(f => f.status === 'completed').length;
             document.getElementById('content').innerHTML = `
-                <h4><i class="fas fa-paper-plane"></i> إرسال رسالة</h4>
-                
-                <div class="instance-selector">
-                    <label class="form-label"><i class="fas fa-server"></i> إرسال عبر:</label>
-                    <select class="form-select" id="instanceSelector" onchange="changeSelectedInstance(this.value)">
-                        ${instanceOptions}
-                    </select>
-                    <small class="text-muted">اختر أي رقم تريد الإرسال منه</small>
-                </div>
-                
-                <form class="mt-3" onsubmit="sendMessage(); return false;">
-                    <div class="mb-3">
-                        <label class="form-label">رقم الهاتف</label>
-                        <input type="text" class="form-control" id="phone" placeholder="مثال: 201158820082" required>
-                        <small class="text-muted">أدخل الرقم بدون + أو أصفار</small>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">الرسالة</label>
-                        <textarea class="form-control" id="message" rows="5" required></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary">📤 إرسال</button>
-                    <div id="sendResult" class="mt-3"></div>
-                </form>
-                
-                <hr>
-                
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i> <strong>حالة الأرقام:</strong><br>
-                    ${instances.map(i => `<div class="d-flex justify-content-between"><span>${i.name}:</span><span class="badge ${i.active ? 'bg-success' : 'bg-danger'}">${i.active ? '🟢 نشط' : '🔴 غير نشط'}</span></div>`).join('')}
-                </div>
-                
-                <h5>📋 الردود التلقائية الذكية</h5>
-                <div class="auto-reply-section">
-                    <div id="autoReplyRules"></div>
-                    <button class="btn btn-outline-primary mt-2" onclick="showRulesManager()">
-                        <i class="fas fa-cog"></i> إدارة القواعد
-                    </button>
-                </div>
-                
-                <hr>
-                
-                <h5>👋 رسالة الترحيب للعملاء الجدد</h5>
-                <div class="auto-reply-section">
-                    <textarea id="welcomeMsgInput" rows="3" class="form-control">${escapeHtml(welcomeMessage)}</textarea>
-                    <button class="btn btn-success mt-2" onclick="saveWelcomeMessage()">
-                        <i class="fas fa-save"></i> حفظ رسالة الترحيب
-                    </button>
-                </div>
-                
-                <hr>
-                
-                <h5>اختر عميلاً سريعاً:</h5>
+                <h4>لوحة التحكم</h4>
                 <div class="row">
-                    ${customers.map(c => `
-                        <div class="col-md-3 mb-2">
-                            <button class="btn btn-outline-primary w-100" onclick="selectCustomer('${c.phone}')">
-                                ${escapeHtml(c.name || c.phone)}
-                            </button>
-                        </div>
-                    `).join('')}
-                    ${customers.length === 0 ? '<p class="text-muted">لا يوجد عملاء مسجلين</p>' : ''}
+                    <div class="col-md-3"><div class="stat-card"><i class="fas fa-users fa-2x"></i><h3>${customers.length}</h3><p>عملاء</p></div></div>
+                    <div class="col-md-3"><div class="stat-card"><i class="fas fa-shopping-cart fa-2x"></i><h3>${orders.length}</h3><p>طلبات</p></div></div>
+                    <div class="col-md-3"><div class="stat-card"><i class="fas fa-clock fa-2x text-warning"></i><h3>${waitingCount}</h3><p>متابعة</p></div></div>
+                    <div class="col-md-3"><div class="stat-card"><i class="fas fa-check-circle fa-2x text-success"></i><h3>${completedCount}</h3><p>مكتملين</p></div></div>
                 </div>
-            `;
-            displayAutoRules();
+                <div class="alert alert-success mt-3"><strong>🎯 كيف يعرف النظام أن العميل اشترى؟</strong><br>
+                - عند إنشاء طلب جديد من لوحة التحكم → إيقاف المتابعة فوراً<br>
+                - عندما يرسل العميل كلمات مثل "تم الطلب" أو "اشتريت" → اكتشاف تلقائي<br>
+                - عند إكمال طلب موجود → إيقاف المتابعة<br>
+                - إذا كان العميل لديه أي طلب → لا يتم إضافته للمتابعة</div>`;
         }
         
-        function changeSelectedInstance(instanceId) {
-            const instance = instances.find(i => i.id === instanceId);
-            if (instance && instance.active) {
-                currentSelectedInstance = instance;
-                alert(`✅ تم التبديل إلى ${instance.name}`);
-            }
+        function sendTo(phone) {
+            showSend();
+            setTimeout(() => document.getElementById('phone').value = phone, 100);
         }
         
-        function saveWelcomeMessage() {
-            const newMsg = document.getElementById('welcomeMsgInput').value;
-            if (newMsg) {
-                welcomeMessage = newMsg;
-                localStorage.setItem('welcomeMessage', welcomeMessage);
-                alert('✅ تم حفظ رسالة الترحيب');
-            }
-        }
+        function escapeHtml(str) { return String(str || '').replace(/[&<>]/g, function(m) { return m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'; }); }
         
-        function escapeHtml(str) {
-            if (!str) return '';
-            return String(str).replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
-            });
-        }
-        
-        // بدء النظام
         startFollowUpSystem();
         showDashboard();
-        console.log('✅ نظام واتساب الذكي جاهز مع دعم رقمين ومتابعة ذكية');
     </script>
 </body>
 </html>
