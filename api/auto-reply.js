@@ -25,6 +25,12 @@ let autoRules = [
         keywords: ['توصيل', 'الشحن', 'delivery'],
         reply: '🚚 التوصيل خلال 3-5 أيام عمل. التكلفة 50 جنيهاً.',
         active: true
+    },
+    {
+        id: 5,
+        keywords: ['مساعدة', 'help', 'الخدمات'],
+        reply: '📋 الخدمات المتاحة:\n💰 الأسعار\n🛍️ الطلبات\n🚚 التوصيل\n📞 التواصل',
+        active: true
     }
 ];
 
@@ -44,12 +50,10 @@ const instances = [
     }
 ];
 
-// دالة للحصول على Instance نشط (يمكن التوسع لاحقاً)
 function getActiveInstances() {
     return instances.filter(inst => inst.active);
 }
 
-// دالة لإرسال رسالة عبر Instance محدد
 async function sendMessageViaInstance(instance, phone, message) {
     try {
         let cleanPhone = phone.toString();
@@ -67,7 +71,7 @@ async function sendMessageViaInstance(instance, phone, message) {
             { headers: { "token": instance.token, "Content-Type": "application/json" } }
         );
         
-        console.log(`✅ [${instance.name}] Auto-reply sent to ${phone}: ${message.substring(0, 50)}...`);
+        console.log(`✅ [${instance.name}] Auto-reply sent to ${phone}`);
         return { success: true, data: response.data, instance: instance.name };
     } catch (error) {
         console.error(`❌ [${instance.name}] Auto-reply error:`, error.response?.data || error.message);
@@ -75,11 +79,9 @@ async function sendMessageViaInstance(instance, phone, message) {
     }
 }
 
-// دالة لإرسال رسالة عبر جميع الـ Instances أو أول Instance
 async function sendAutoMessage(phone, message, instanceId = null) {
     let targetInstances = getActiveInstances();
     
-    // إذا تم تحديد Instance معين
     if (instanceId) {
         targetInstances = targetInstances.filter(inst => inst.id === instanceId);
     }
@@ -89,12 +91,10 @@ async function sendAutoMessage(phone, message, instanceId = null) {
         return { success: false, error: 'No active instances' };
     }
     
-    // إرسال عبر أول Instance نشط (يمكن تعديله لإرسال عبر جميعهم حسب الحاجة)
     const instance = targetInstances[0];
     return await sendMessageViaInstance(instance, phone, message);
 }
 
-// دالة للبحث عن رد تلقائي
 function getAutoReply(message) {
     const lowerMsg = message.toLowerCase();
     
@@ -109,7 +109,6 @@ function getAutoReply(message) {
     return null;
 }
 
-// الدالة الرئيسية لمعالجة الرسائل الواردة (مع دعم تحديد الـ Instance)
 async function processIncomingMessage(phone, message, instanceId = null) {
     console.log(`📩 رسالة واردة من ${phone}: ${message}`);
     
@@ -125,7 +124,6 @@ async function processIncomingMessage(phone, message, instanceId = null) {
     return { replied: false };
 }
 
-// دالة لإضافة قاعدة جديدة
 function addRule(keywords, reply, active = true) {
     const newRule = {
         id: Date.now(),
@@ -137,12 +135,10 @@ function addRule(keywords, reply, active = true) {
     return newRule;
 }
 
-// دالة للحصول على كل القواعد
 function getAllRules() {
     return autoRules;
 }
 
-// دوال جديدة لإدارة الـ Instances
 function getInstances() {
     return instances;
 }
