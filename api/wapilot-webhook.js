@@ -1,9 +1,21 @@
 const axios = require('axios');
+const { getInstances, sendMessageViaInstance } = require('./auto-reply');
 
-// إعدادات واتساب API
-const INSTANCE_ID = "instance3537";
-const API_TOKEN = "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N";
-const API_URL = `https://api.wapilot.net/api/v2/${INSTANCE_ID}/send-message`;
+// إعدادات الـ Instances المتعددة
+const instances = [
+    {
+        id: "instance3532",
+        token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
+        name: "الرقم الأول",
+        active: true
+    },
+    {
+        id: "instance3537",
+        token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
+        name: "الرقم الثاني",
+        active: true
+    }
+];
 
 // قواعد الردود التلقائية
 let autoRules = [
@@ -13,10 +25,9 @@ let autoRules = [
     { keywords: ['توصيل', 'الشحن', 'delivery'], reply: '🚚 التوصيل خلال 3-5 أيام عمل. التكلفة 50 جنيهاً.', active: true }
 ];
 
-// دالة إرسال رسالة
-async function sendWhatsAppMessage(phone, message) {
+// دالة إرسال رسالة باستخدام Instance محدد
+async function sendWhatsAppMessage(instance, phone, message) {
     try {
-        // تنظيف رقم الهاتف
         let cleanPhone = phone.toString();
         cleanPhone = cleanPhone.replace('@c.us', '');
         cleanPhone = cleanPhone.replace('@lid', '');
@@ -24,24 +35,23 @@ async function sendWhatsAppMessage(phone, message) {
         cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
         if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
         
-        // التحقق من أن الرقم صالح (10-15 رقم)
         if (cleanPhone.length < 10 || cleanPhone.length > 15) {
             console.log(`⚠️ Invalid phone number: ${cleanPhone}`);
             return { success: false, error: 'Invalid phone number' };
         }
         
         const chat_id = `${cleanPhone}@c.us`;
-        console.log(`📤 Sending to: ${chat_id}`);
+        console.log(`📤 [${instance.name}] Sending to: ${chat_id}`);
         
         const response = await axios.post(
-            API_URL,
+            `https://api.wapilot.net/api/v2/${instance.id}/send-message`,
             { chat_id, text: message },
-            { headers: { "token": API_TOKEN, "Content-Type": "application/json" } }
+            { headers: { "token": instance.token, "Content-Type": "application/json" } }
         );
-        console.log(`✅ Sent successfully to ${cleanPhone}`);
+        console.log(`✅ [${instance.name}] Sent successfully to ${cleanPhone}`);
         return { success: true };
     } catch (error) {
-        console.error('❌ Send failed:', error.response?.data || error.message);
+        console.error(`❌ [${instance.name}] Send failed:`, error.response?.data || error.message);
         return { success: false, error: error.response?.data || error.message };
     }
 }
@@ -61,6 +71,17 @@ function findAutoReply(message) {
     return null;
 }
 
+// دالة لتحديد الـ Instance المناسب
+function getInstanceForWebhook(data) {
+    // يمكن تحديد الـ Instance من خلال instance_id في الـ webhook
+    if (data.instance_id) {
+        const instance = instances.find(inst => inst.id === data.instance_id);
+        if (instance && instance.active) return instance;
+    }
+    // إذا لم يتم تحديد، نستخدم أول Instance نشط
+    return instances.find(inst => inst.active);
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
@@ -71,7 +92,11 @@ module.exports = async (req, res) => {
     }
     
     if (req.method === 'GET') {
-        return res.status(200).json({ status: 'active', timestamp: new Date().toISOString() });
+        return res.status(200).json({ 
+            status: 'active', 
+            instances: instances.map(i => ({ id: i.id, name: i.name, active: i.active })),
+            timestamp: new Date().toISOString() 
+        });
     }
     
     console.log('📩 Webhook received:', new Date().toISOString());
@@ -79,11 +104,13 @@ module.exports = async (req, res) => {
     const data = req.body;
     let rawPhone = null;
     let message = null;
+    let instanceId = null;
     
     // استخراج البيانات من payload
     if (data.event === 'message' && data.payload) {
         rawPhone = data.payload.from;
         message = data.payload.body;
+        instanceId = data.instance_id || data.webhook_id;
     }
     
     if (!rawPhone || !message) {
@@ -93,14 +120,32 @@ module.exports = async (req, res) => {
     
     console.log(`📱 Raw phone: ${rawPhone}`);
     console.log(`💬 Message: ${message}`);
+    console.log(`🔌 Instance ID from webhook: ${instanceId || 'auto-detect'}`);
     
-    // التحقق من أن الرقم ليس LID (معرف وهمي)
+    // تحديد الـ Instance للرد
+    let targetInstance = null;
+    
+    if (instanceId) {
+        targetInstance = instances.find(inst => inst.id === instanceId);
+    }
+    
+    if (!targetInstance) {
+        targetInstance = instances.find(inst => inst.active);
+    }
+    
+    if (!targetInstance) {
+        console.log('⚠️ No active instance available');
+        return res.status(200).json({ received: true, error: 'No active instance' });
+    }
+    
+    // التحقق من أن الرقم ليس LID
     if (rawPhone.includes('@lid')) {
         console.log(`⚠️ Cannot reply to LID: ${rawPhone}`);
         return res.status(200).json({
             received: true,
             note: 'Cannot reply to LID, need real phone number',
-            rawPhone: rawPhone
+            rawPhone: rawPhone,
+            instance: targetInstance.name
         });
     }
     
@@ -109,6 +154,7 @@ module.exports = async (req, res) => {
     if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
     
     console.log(`📱 Clean phone: ${cleanPhone}`);
+    console.log(`🤖 Using instance: ${targetInstance.name} (${targetInstance.id})`);
     
     // التحقق من صحة الرقم
     if (cleanPhone.length < 10 || cleanPhone.length > 15) {
@@ -116,7 +162,8 @@ module.exports = async (req, res) => {
         return res.status(200).json({
             received: true,
             error: 'Invalid phone number',
-            phone: cleanPhone
+            phone: cleanPhone,
+            instance: targetInstance.name
         });
     }
     
@@ -125,10 +172,18 @@ module.exports = async (req, res) => {
     
     if (autoReply) {
         console.log(`🤖 Auto-reply: ${autoReply.substring(0, 50)}...`);
-        await sendWhatsAppMessage(cleanPhone, autoReply);
-        return res.status(200).json({ success: true, replied: true });
+        await sendWhatsAppMessage(targetInstance, cleanPhone, autoReply);
+        return res.status(200).json({ 
+            success: true, 
+            replied: true,
+            instance: targetInstance.name
+        });
     } else {
         console.log(`⚠️ No auto-reply for: ${message}`);
-        return res.status(200).json({ received: true, replied: false });
+        return res.status(200).json({ 
+            received: true, 
+            replied: false,
+            instance: targetInstance.name
+        });
     }
 };
