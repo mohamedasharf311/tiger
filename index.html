@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام واتساب الذكي - ردود تلقائية 24 ساعة - دعم رقمين</title>
+    <title>نظام واتساب الذكي - ردود تلقائية 24 ساعة - متابعة ذكية</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -25,6 +25,10 @@
             border-radius: 15px;
             padding: 20px;
             text-align: center;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
         }
         .btn-custom {
             background: #667eea;
@@ -77,6 +81,10 @@
             color: white;
             border-bottom-left-radius: 4px;
         }
+        .followup-message {
+            background: #fff3cd;
+            border-right: 4px solid #ffc107;
+        }
         .loading {
             display: inline-block;
             width: 20px;
@@ -118,9 +126,20 @@
             margin-bottom: 15px;
             background: white;
         }
-        .active-instance {
-            background: #e8f0fe;
-            border-right: 4px solid #28a745;
+        .followup-card {
+            border-right: 4px solid #ffc107;
+        }
+        .status-waiting {
+            background: #ffc107;
+            color: #000;
+        }
+        .status-replied {
+            background: #28a745;
+            color: white;
+        }
+        .status-completed {
+            background: #6c757d;
+            color: white;
         }
     </style>
 </head>
@@ -128,7 +147,7 @@
     <div class="container">
         <div class="text-center mb-4">
             <h1 class="text-white">🤖 نظام واتساب الذكي</h1>
-            <p class="text-white">ردود تلقائية ذكية 24 ساعة | دعم رقمين واتساب | إدارة الطلبات</p>
+            <p class="text-white">ردود تلقائية ذكية 24 ساعة | دعم رقمين واتساب | متابعة ذكية للعملاء</p>
         </div>
         
         <div class="row mb-4">
@@ -159,22 +178,29 @@
         </div>
         
         <div class="row mb-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card text-center p-2" onclick="showConversations()">
                     <i class="fas fa-comments fa-1x text-info"></i>
                     <span>سجل المحادثات</span>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card text-center p-2" onclick="showRulesManager()">
                     <i class="fas fa-robot fa-1x text-success"></i>
-                    <span>إدارة الردود التلقائية</span>
+                    <span>الردود التلقائية</span>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card text-center p-2" onclick="showInstances()">
                     <i class="fas fa-server fa-1x text-warning"></i>
-                    <span>إدارة الأرقام (2 Instance)</span>
+                    <span>إدارة الأرقام</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center p-2 bg-warning bg-opacity-25" onclick="showFollowUpSettings()">
+                    <i class="fas fa-clock fa-1x text-warning"></i>
+                    <span>المتابعة الذكية</span>
+                    <small class="text-muted d-block">تذكيرات تلقائية</small>
                 </div>
             </div>
         </div>
@@ -186,7 +212,7 @@
                 <p>اختر إحدى الخدمات من الأعلى للبدء</p>
                 <hr>
                 <div class="alert alert-info">
-                    <i class="fas fa-check-circle"></i> النظام يدعم <strong>رقمين واتساب</strong> مع نظام ردود تلقائية موحد
+                    <i class="fas fa-check-circle"></i> النظام يدعم <strong>رقمين واتساب</strong> مع نظام ردود تلقائية ومتابعة ذكية
                 </div>
             </div>
         </div>
@@ -213,7 +239,7 @@
             }
         ];
         
-        let currentSelectedInstance = instances[0]; // الـ Instance المحدد حالياً للإرسال
+        let currentSelectedInstance = instances[0];
         
         // ==================== DATA STORAGE ====================
         let customers = JSON.parse(localStorage.getItem('customers') || '[]');
@@ -222,7 +248,28 @@
         let conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
         let welcomeMessage = localStorage.getItem('welcomeMessage') || 'مرحباً {name}! 👋\n\nشكراً لتواصلك معنا. كيف يمكننا مساعدتك اليوم؟';
         
-        // القواعد الافتراضية إذا لم تكن موجودة
+        // ==================== FOLLOW-UP SYSTEM ====================
+        let followUps = JSON.parse(localStorage.getItem('followUps') || '[]');
+        
+        let followUpSettings = {
+            enabled: true,
+            reminders: [
+                { hours: 1, message: "👋 مرحباً! لاحظت أنك لم ترد بعد. هل تحتاج مساعدة؟ يمكنك كتابة 'مساعدة' لمعرفة الخدمات المتاحة." },
+                { hours: 6, message: "🕐 مرحباً مجدداً! لا تزال خدماتنا متاحة. إذا كان لديك أي سؤال عن الأسعار أو المنتجات، فقط اكتب 'سعر' أو 'طلب'." },
+                { hours: 24, message: "📢 تذكير: نحن هنا لخدمتك! يمكنك التواصل معنا في أي وقت. للاستفسار عن المنتجات اكتب 'منتجات' أو 'سعر'." },
+                { hours: 48, message: "🎁 عرض خاص! إذا قمت بالطلب خلال اليوم، احصل على خصم 10% على أول طلب. اكتب 'طلب' للبدء." }
+            ],
+            maxFollowUps: 4,
+            checkInterval: 30
+        };
+        
+        // تحميل الإعدادات المحفوظة
+        const savedSettings = localStorage.getItem('followUpSettings');
+        if (savedSettings) {
+            Object.assign(followUpSettings, JSON.parse(savedSettings));
+        }
+        
+        // القواعد الافتراضية
         if (autoRules.length === 0) {
             autoRules = [
                 { id: 1, keywords: ['سعر', 'الثمن', 'كم سعر', 'بكام', 'price'], reply: '💰 سعر المنتج هو 100 جنيه مصري. هل تريد معرفة المزيد من التفاصيل؟', active: true },
@@ -230,11 +277,13 @@
                 { id: 3, keywords: ['طلب', 'اوردر', 'اطلب', 'order', 'شراء'], reply: '🛍️ مرحباً! لإنشاء طلب جديد، يرجى إرسال:\n1. اسمك الكامل\n2. العنوان\n3. اسم المنتج\n\nسيتم التواصل معك لتأكيد الطلب.', active: true },
                 { id: 4, keywords: ['توصيل', 'الشحن', 'delivery', 'شحن'], reply: '🚚 التوصيل خلال 3-5 أيام عمل. التكلفة 50 جنيهاً للتوصيل داخل القاهرة.', active: true },
                 { id: 5, keywords: ['مرحباً', 'السلام', 'اهلا', 'hello', 'hi'], reply: '👋 أهلاً بك! كيف يمكنني مساعدتك اليوم؟\n\nيمكنك الاستفسار عن:\n- الأسعار 💰\n- الطلبات 🛍️\n- التوصيل 🚚', active: true },
-                { id: 6, keywords: ['رقم', 'تلفون', 'واتساب', 'تواصل'], reply: '📞 يمكنك التواصل معنا عبر:\n- واتساب: 201158820082\n- الهاتف: 01158820082\n- البريد: support@example.com', active: true }
+                { id: 6, keywords: ['رقم', 'تلفون', 'واتساب', 'تواصل'], reply: '📞 يمكنك التواصل معنا عبر:\n- واتساب: 201158820082\n- الهاتف: 01158820082\n- البريد: support@example.com', active: true },
+                { id: 7, keywords: ['مساعدة', 'help', 'الخدمات'], reply: '📋 الخدمات المتاحة:\n💰 عرض الأسعار\n🛍️ إنشاء طلب جديد\n🚚 معلومات التوصيل\n📞 أرقام التواصل\n\nما الذي تريد معرفته؟', active: true }
             ];
             localStorage.setItem('autoRules', JSON.stringify(autoRules));
         }
         
+        // ==================== SAVE FUNCTIONS ====================
         function saveData() {
             localStorage.setItem('customers', JSON.stringify(customers));
             localStorage.setItem('orders', JSON.stringify(orders));
@@ -250,7 +299,12 @@
             localStorage.setItem('instances', JSON.stringify(instances));
         }
         
-        // تحميل الـ Instances من localStorage
+        function saveFollowUpSettings() {
+            localStorage.setItem('followUpSettings', JSON.stringify(followUpSettings));
+            localStorage.setItem('followUps', JSON.stringify(followUps));
+        }
+        
+        // تحميل الـ Instances
         const savedInstances = localStorage.getItem('instances');
         if (savedInstances) {
             instances = JSON.parse(savedInstances);
@@ -289,11 +343,132 @@
             }
         }
         
+        // ==================== FOLLOW-UP FUNCTIONS ====================
+        function addOrUpdateFollowUp(phone, name, lastMessage, lastMessageTime) {
+            const existing = followUps.find(f => f.phone === phone);
+            const now = new Date();
+            
+            if (existing) {
+                existing.lastMessage = lastMessage;
+                existing.lastMessageTime = lastMessageTime || now.toISOString();
+                existing.updatedAt = now.toISOString();
+                if (existing.status === 'replied') return;
+                existing.status = 'waiting';
+            } else {
+                followUps.push({
+                    phone: phone,
+                    name: name || phone,
+                    lastMessage: lastMessage,
+                    lastMessageTime: lastMessageTime || now.toISOString(),
+                    followUpCount: 0,
+                    lastFollowUpSent: null,
+                    status: 'waiting',
+                    createdAt: now.toISOString(),
+                    updatedAt: now.toISOString()
+                });
+            }
+            
+            saveFollowUpSettings();
+        }
+        
+        function markCustomerReplied(phone) {
+            const followUp = followUps.find(f => f.phone === phone);
+            if (followUp && followUp.status !== 'replied') {
+                followUp.status = 'replied';
+                followUp.repliedAt = new Date().toISOString();
+                followUp.updatedAt = new Date().toISOString();
+                saveFollowUpSettings();
+                console.log(`✅ تم تحديث حالة العميل ${phone}: رد`);
+            }
+        }
+        
+        async function checkAndSendFollowUps() {
+            if (!followUpSettings.enabled) return;
+            
+            const now = new Date();
+            let sentCount = 0;
+            
+            for (let followUp of followUps) {
+                if (followUp.status === 'replied' || followUp.status === 'completed') continue;
+                if (followUp.followUpCount >= followUpSettings.maxFollowUps) {
+                    followUp.status = 'completed';
+                    saveFollowUpSettings();
+                    continue;
+                }
+                
+                const lastMessageTime = new Date(followUp.lastMessageTime);
+                const hoursSinceLastMessage = (now - lastMessageTime) / (1000 * 60 * 60);
+                
+                let reminderToSend = null;
+                
+                for (let i = 0; i < followUpSettings.reminders.length; i++) {
+                    const reminder = followUpSettings.reminders[i];
+                    if (hoursSinceLastMessage >= reminder.hours && 
+                        (!followUp.lastFollowUpSent || 
+                         (now - new Date(followUp.lastFollowUpSent)) / (1000 * 60 * 60) >= reminder.hours)) {
+                        reminderToSend = reminder;
+                        break;
+                    }
+                }
+                
+                if (reminderToSend) {
+                    console.log(`📢 جاري إرسال متابعة للعميل ${followUp.phone}`);
+                    const sent = await sendAutoMessage(followUp.phone, reminderToSend.message);
+                    
+                    if (sent) {
+                        followUp.followUpCount++;
+                        followUp.lastFollowUpSent = now.toISOString();
+                        followUp.updatedAt = now.toISOString();
+                        
+                        conversations.unshift({
+                            phone: followUp.phone,
+                            message: reminderToSend.message,
+                            direction: 'outgoing',
+                            timestamp: now.toISOString(),
+                            isAuto: true,
+                            isFollowUp: true,
+                            followUpNumber: followUp.followUpCount
+                        });
+                        
+                        sentCount++;
+                        console.log(`✅ تم إرسال متابعة رقم ${followUp.followUpCount} للعميل ${followUp.phone}`);
+                    }
+                }
+            }
+            
+            if (sentCount > 0) {
+                saveData();
+                console.log(`📊 تم إرسال ${sentCount} رسالة متابعة`);
+            }
+        }
+        
+        let followUpInterval = null;
+        
+        function startFollowUpSystem() {
+            if (followUpInterval) clearInterval(followUpInterval);
+            const intervalMinutes = followUpSettings.checkInterval;
+            followUpInterval = setInterval(() => {
+                console.log(`🔄 جاري فحص العملاء للمتابعة...`);
+                checkAndSendFollowUps();
+            }, intervalMinutes * 60 * 1000);
+            console.log(`✅ تم تفعيل نظام المتابعة الذكية (فحص كل ${intervalMinutes} دقيقة)`);
+        }
+        
+        function stopFollowUpSystem() {
+            if (followUpInterval) {
+                clearInterval(followUpInterval);
+                followUpInterval = null;
+                console.log(`⏸️ تم إيقاف نظام المتابعة الذكية`);
+            }
+        }
+        
+        // ==================== PROCESS INCOMING ====================
         async function processIncomingMessage(phone, message, instanceId = null, isTest = false) {
             console.log(`📩 رسالة واردة من ${phone}: ${message}`);
-            if (instanceId) console.log(`📡 عبر Instance: ${instanceId}`);
             
-            // حفظ المحادثة
+            markCustomerReplied(phone);
+            addOrUpdateFollowUp(phone, null, message);
+            
             conversations.unshift({
                 phone: phone,
                 message: message,
@@ -321,7 +496,6 @@
                     });
                 }
             } else {
-                // رد عام
                 const fallbackReply = '👋 شكراً لتواصلك! سيتم الرد عليك قريباً. إذا كان لديك استفسار عن الأسعار أو الطلبات، يمكنك كتابة "سعر" أو "طلب"';
                 await sendAutoMessage(phone, fallbackReply, instanceId);
                 replyMessage = fallbackReply;
@@ -335,13 +509,13 @@
                 });
             }
             
-            // الاحتفاظ بآخر 200 محادثة فقط
             if (conversations.length > 200) conversations = conversations.slice(0, 200);
             saveData();
             
             return { replied: true, message: replyMessage };
         }
         
+        // ==================== RULES FUNCTIONS ====================
         function addAutoRule(keywords, reply) {
             const newRule = {
                 id: Date.now(),
@@ -407,16 +581,196 @@
             `).join('');
         }
         
-        function saveWelcomeMessage() {
-            const newMsg = document.getElementById('welcomeMsgInput').value;
-            if (newMsg) {
-                welcomeMessage = newMsg;
-                localStorage.setItem('welcomeMessage', welcomeMessage);
-                alert('✅ تم حفظ رسالة الترحيب');
+        // ==================== FOLLOW-UP UI ====================
+        function showFollowUpSettings() {
+            let remindersHtml = '';
+            
+            followUpSettings.reminders.forEach((reminder, index) => {
+                remindersHtml += `
+                    <div class="card mb-2">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label class="form-label">الوقت (ساعات)</label>
+                                    <input type="number" class="form-control" id="reminderHours_${index}" 
+                                           value="${reminder.hours}" min="0.5" step="0.5">
+                                </div>
+                                <div class="col-md-9">
+                                    <label class="form-label">رسالة المتابعة</label>
+                                    <textarea class="form-control" id="reminderMessage_${index}" rows="2">${escapeHtml(reminder.message)}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            const waitingCount = followUps.filter(f => f.status === 'waiting').length;
+            const repliedCount = followUps.filter(f => f.status === 'replied').length;
+            const totalFollowUps = followUps.reduce((sum, f) => sum + f.followUpCount, 0);
+            
+            document.getElementById('content').innerHTML = `
+                <h4><i class="fas fa-clock"></i> إعدادات المتابعة الذكية</h4>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 
+                    نظام المتابعة الذكي يرسل رسائل تذكير للعملاء الذين لم يردوا على البوت في أوقات محددة.
+                </div>
+                
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="followUpEnabled" 
+                                   ${followUpSettings.enabled ? 'checked' : ''}>
+                            <label class="form-check-label fw-bold" for="followUpEnabled">
+                                <i class="fas fa-power-off"></i> تفعيل نظام المتابعة الذكية
+                            </label>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">أقصى عدد محاولات متابعة</label>
+                                <input type="number" class="form-control" id="maxFollowUps" 
+                                       value="${followUpSettings.maxFollowUps}" min="1" max="10">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">مدة الفحص (دقائق)</label>
+                                <input type="number" class="form-control" id="checkInterval" 
+                                       value="${followUpSettings.checkInterval}" min="5" max="120">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h5 class="mt-3"><i class="fas fa-envelope"></i> رسائل المتابعة</h5>
+                ${remindersHtml}
+                
+                <div class="mt-3">
+                    <button class="btn btn-primary" onclick="updateFollowUpSettings()">
+                        <i class="fas fa-save"></i> حفظ الإعدادات
+                    </button>
+                    <button class="btn btn-secondary ms-2" onclick="showDashboard()">
+                        <i class="fas fa-arrow-right"></i> رجوع
+                    </button>
+                    <button class="btn btn-warning ms-2" onclick="sendTestFollowUp()">
+                        <i class="fas fa-paper-plane"></i> اختبار إرسال متابعة
+                    </button>
+                </div>
+                
+                <hr class="mt-4">
+                
+                <h5><i class="fas fa-chart-line"></i> تقرير المتابعات</h5>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="alert alert-warning text-center">
+                            <strong>${waitingCount}</strong><br>
+                            <small>عملاء في الانتظار</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-success text-center">
+                            <strong>${repliedCount}</strong><br>
+                            <small>عملاء ردوا</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-info text-center">
+                            <strong>${totalFollowUps}</strong><br>
+                            <small>رسائل متابعة مرسلة</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>العميل</th>
+                                <th>آخر رسالة</th>
+                                <th>محاولات</th>
+                                <th>آخر متابعة</th>
+                                <th>الحالة</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${followUps.filter(f => f.status !== 'replied').map(f => `
+                                <tr>
+                                    <td>${escapeHtml(f.name || f.phone)}</td>
+                                    <td><small>${new Date(f.lastMessageTime).toLocaleString('ar')}</small></td>
+                                    <td>${f.followUpCount}/${followUpSettings.maxFollowUps}</td>
+                                    <td>${f.lastFollowUpSent ? new Date(f.lastFollowUpSent).toLocaleString('ar') : 'لا يوجد'}</td>
+                                    <td>
+                                        <span class="badge ${f.status === 'waiting' ? 'bg-warning' : 'bg-secondary'}">
+                                            ${f.status === 'waiting' ? 'في الانتظار' : 'مكتمل'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="sendTo('${f.phone}')">
+                                            <i class="fas fa-reply"></i> رد
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                            ${followUps.filter(f => f.status !== 'replied').length === 0 ? 
+                                '<tr><td colspan="6" class="text-center">لا توجد متابعات نشطة</td></tr>' : ''}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        function updateFollowUpSettings() {
+            const enabled = document.getElementById('followUpEnabled').checked;
+            const maxFollowUps = parseInt(document.getElementById('maxFollowUps').value);
+            const checkInterval = parseInt(document.getElementById('checkInterval').value);
+            
+            followUpSettings.enabled = enabled;
+            followUpSettings.maxFollowUps = maxFollowUps;
+            followUpSettings.checkInterval = checkInterval;
+            
+            for (let i = 0; i < followUpSettings.reminders.length; i++) {
+                const hoursInput = document.getElementById(`reminderHours_${i}`);
+                const messageInput = document.getElementById(`reminderMessage_${i}`);
+                
+                if (hoursInput && messageInput) {
+                    followUpSettings.reminders[i].hours = parseFloat(hoursInput.value);
+                    followUpSettings.reminders[i].message = messageInput.value;
+                }
+            }
+            
+            saveFollowUpSettings();
+            
+            if (enabled) {
+                stopFollowUpSystem();
+                startFollowUpSystem();
+            } else {
+                stopFollowUpSystem();
+            }
+            
+            alert('✅ تم حفظ إعدادات المتابعة الذكية');
+            showFollowUpSettings();
+        }
+        
+        async function sendTestFollowUp() {
+            const phone = prompt('أدخل رقم الهاتف للاختبار:', '201158820082');
+            if (!phone) return;
+            
+            const message = prompt('أدخل رسالة المتابعة:', 'مرحباً! لاحظت أنك لم ترد بعد. كيف يمكننا مساعدتك؟');
+            if (!message) return;
+            
+            const sent = await sendAutoMessage(phone, message);
+            if (sent) {
+                addOrUpdateFollowUp(phone, phone, 'رسالة اختبار', new Date().toISOString());
+                alert('✅ تم إرسال رسالة المتابعة بنجاح');
+                showFollowUpSettings();
+            } else {
+                alert('❌ فشل إرسال الرسالة');
             }
         }
         
-        // ==================== INSTANCE MANAGEMENT ====================
+        // ==================== INSTANCE FUNCTIONS ====================
         function showInstances() {
             let html = `
                 <h4><i class="fas fa-server"></i> إدارة الأرقام (Instances)</h4>
@@ -460,9 +814,7 @@
                 `;
             });
             
-            html += `</div>`;
-            
-            html += `
+            html += `</div>
                 <div class="card mt-3">
                     <div class="card-header bg-primary text-white">
                         <strong>➕ إضافة رقم جديد</strong>
@@ -470,7 +822,7 @@
                     <div class="card-body">
                         <div class="row g-2">
                             <div class="col-md-3">
-                                <input type="text" class="form-control" id="newInstanceId" placeholder="معرف الـ Instance (مثال: instance3538)">
+                                <input type="text" class="form-control" id="newInstanceId" placeholder="معرف الـ Instance">
                             </div>
                             <div class="col-md-3">
                                 <input type="text" class="form-control" id="newInstanceToken" placeholder="Token">
@@ -497,20 +849,6 @@
                     </div>
                     <small class="text-muted">قم بتعيين هذا الرابط في كل Instance من لوحة تحكم Wapilot</small>
                 </div>
-                
-                <div class="mt-3">
-                    <h6>📊 حالة الأرقام:</h6>
-                    <div class="row">
-                        ${instances.map(inst => `
-                            <div class="col-md-6">
-                                <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded mb-2">
-                                    <span><i class="fas fa-${inst.active ? 'check-circle text-success' : 'times-circle text-danger'}"></i> ${inst.name}</span>
-                                    <span class="text-muted">${inst.active ? 'متصل' : 'غير متصل'}</span>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
             `;
             
             document.getElementById('content').innerHTML = html;
@@ -518,11 +856,7 @@
         
         function testInstance(instanceId) {
             const instance = instances.find(i => i.id === instanceId);
-            if (instance) {
-                alert(`🧪 اختبار الـ Instance: ${instance.name}\n\nID: ${instance.id}\nالحالة: ${instance.active ? 'نشط' : 'غير نشط'}\n\nيمكنك إرسال رسالة اختبار من صفحة الإرسال واختيار هذا الرقم.`);
-            } else {
-                alert('❌ لم يتم العثور على الـ Instance');
-            }
+            alert(`🧪 اختبار الـ Instance: ${instance.name}\n\nID: ${instance.id}\nالحالة: ${instance.active ? 'نشط' : 'غير نشط'}`);
         }
         
         function editInstance(index) {
@@ -560,19 +894,13 @@
                 return;
             }
             
-            const newInstance = {
-                id: id,
-                token: token,
-                name: name,
-                phone: phone || '',
+            instances.push({
+                id, token, name, phone: phone || '',
                 active: true,
                 createdAt: new Date().toISOString()
-            };
-            
-            instances.push(newInstance);
+            });
             saveInstances();
             
-            // مسح الحقول
             document.getElementById('newInstanceId').value = '';
             document.getElementById('newInstanceToken').value = '';
             document.getElementById('newInstanceName').value = '';
@@ -580,21 +908,6 @@
             
             showInstances();
             alert(`✅ تم إضافة الرقم ${name} بنجاح`);
-        }
-        
-        function changeSelectedInstance(instanceId) {
-            const instance = instances.find(i => i.id === instanceId);
-            if (instance && instance.active) {
-                currentSelectedInstance = instance;
-                document.getElementById('selectedInstanceDisplay').innerHTML = `
-                    <span class="badge bg-success">
-                        <i class="fas fa-check-circle"></i> الإرسال عبر: ${instance.name}
-                    </span>
-                `;
-                alert(`✅ تم التبديل إلى ${instance.name}`);
-            } else {
-                alert('❌ هذا الرقم غير نشط');
-            }
         }
         
         // ==================== CUSTOMER FUNCTIONS ====================
@@ -694,7 +1007,6 @@
                     resultDiv.innerHTML = `<div class="alert alert-success">✅ تم إرسال الرسالة بنجاح عبر ${result.instance || 'الرقم المحدد'}</div>`;
                     document.getElementById('message').value = '';
                     
-                    // حفظ المحادثة
                     conversations.unshift({
                         phone: phone,
                         message: message,
@@ -739,7 +1051,6 @@
             if (conversations.length === 0) {
                 html += '<div class="alert alert-info">لا توجد محادثات حتى الآن</div>';
             } else {
-                // تجميع المحادثات حسب الرقم
                 const grouped = {};
                 conversations.forEach(conv => {
                     if (!grouped[conv.phone]) grouped[conv.phone] = [];
@@ -766,18 +1077,21 @@
                     
                     msgs.slice(-15).forEach(msg => {
                         const isIncoming = msg.direction === 'incoming';
+                        const isFollowUp = msg.isFollowUp;
                         const msgInstance = msg.instanceId ? instances.find(i => i.id === msg.instanceId)?.name : '';
                         
                         html += `
                             <div class="text-${isIncoming ? 'right' : 'left'} mb-2">
-                                <div class="message-bubble ${isIncoming ? 'message-incoming' : 'message-outgoing'}">
+                                <div class="message-bubble ${isIncoming ? 'message-incoming' : 'message-outgoing'} ${isFollowUp ? 'followup-message' : ''}" 
+                                     style="${isFollowUp && !isIncoming ? 'background: #fff3cd; color: #856404;' : ''}">
                                     <small class="${isIncoming ? 'text-muted' : 'text-white-50'}">
-                                        ${isIncoming ? '👤 عميل' : (msg.isAuto ? '🤖 بوت' : '📤 أنت')}
+                                        ${isIncoming ? '👤 عميل' : (msg.isFollowUp ? '⏰ متابعة' : (msg.isAuto ? '🤖 بوت' : '📤 أنت'))}
                                         ${msgInstance ? ` <span class="badge bg-secondary" style="font-size: 8px;">${msgInstance}</span>` : ''}
+                                        ${msg.followUpNumber ? ` <span class="badge bg-warning" style="font-size: 8px;">محاولة ${msg.followUpNumber}</span>` : ''}
                                     </small><br>
                                     ${escapeHtml(msg.message)}
                                     <br><small style="font-size: 10px; opacity: 0.7;">
-                                        ${new Date(msg.timestamp).toLocaleTimeString('ar')}
+                                        ${new Date(msg.timestamp).toLocaleString('ar')}
                                     </small>
                                 </div>
                             </div>
@@ -890,7 +1204,6 @@
             
             if (phone && message) {
                 const resultDiv = document.getElementById('content');
-                const originalHtml = resultDiv.innerHTML;
                 resultDiv.innerHTML = '<div class="text-center"><div class="loading"></div><p class="mt-2">جاري اختبار الرد التلقائي...</p></div>';
                 
                 try {
@@ -912,6 +1225,9 @@
         // ==================== UI PAGES ====================
         function showDashboard() {
             const activeInstances = instances.filter(i => i.active).length;
+            const waitingFollowUps = followUps.filter(f => f.status === 'waiting').length;
+            const totalFollowUps = followUps.reduce((sum, f) => sum + f.followUpCount, 0);
+            
             const stats = {
                 totalCustomers: customers.length,
                 activeCustomers: customers.filter(c => c.status === 'active').length,
@@ -919,7 +1235,7 @@
                 pendingOrders: orders.filter(o => o.status === 'pending').length
             };
             
-            document.getElementById('content').innerHTML = `
+            let html = `
                 <h4><i class="fas fa-chart-line"></i> لوحة التحكم</h4>
                 <div class="row mt-4">
                     <div class="col-md-3">
@@ -952,24 +1268,52 @@
                     </div>
                 </div>
                 
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="stat-card">
+                            <i class="fas fa-clock fa-2x text-warning"></i>
+                            <h3>${waitingFollowUps}</h3>
+                            <p>عملاء ينتظرون المتابعة</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="stat-card">
+                            <i class="fas fa-envelope fa-2x text-info"></i>
+                            <h3>${totalFollowUps}</h3>
+                            <p>رسائل متابعة مرسلة</p>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="row mt-4">
                     <div class="col-md-12">
                         <div class="alert alert-info">
-                            <strong>🤖 نظام الرد التلقائي 24 ساعة - دعم رقمين واتساب</strong><br>
+                            <strong>🤖 نظام الرد التلقائي 24 ساعة - دعم رقمين واتساب - متابعة ذكية</strong><br>
                             <small>Webhook URL: <code class="webhook-url">https://tiger-eta.vercel.app/api/wapilot-webhook</code></small>
                             <hr>
                             <strong>📱 الأرقام النشطة:</strong><br>
                             ${instances.filter(i => i.active).map(i => `• ${i.name} (${i.id})`).join('<br>') || 'لا توجد أرقام نشطة'}
                         </div>
-                        <button class="btn btn-success w-100 mb-2" onclick="testWebhook()">
-                            <i class="fas fa-paper-plane"></i> اختبار الرد التلقائي (محاكاة)
-                        </button>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button class="btn btn-success w-100 mb-2" onclick="testWebhook()">
+                                    <i class="fas fa-paper-plane"></i> اختبار الرد التلقائي
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <button class="btn btn-warning w-100 mb-2" onclick="showFollowUpSettings()">
+                                    <i class="fas fa-clock"></i> إدارة المتابعة الذكية
+                                </button>
+                            </div>
+                        </div>
                         <button class="btn btn-outline-secondary w-100" onclick="showConversations()">
                             <i class="fas fa-comments"></i> عرض سجل المحادثات
                         </button>
                     </div>
                 </div>
             `;
+            
+            document.getElementById('content').innerHTML = html;
         }
         
         function showCustomers() {
@@ -981,7 +1325,7 @@
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
-                            <tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>التاريخ</th><th>الإجراءات</th>   </tr>
+                            <tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>التاريخ</th><th>الإجراءات</th> </tr>
                         </thead>
                         <tbody>
             `;
@@ -1086,14 +1430,7 @@
                 
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i> <strong>حالة الأرقام:</strong><br>
-                    ${instances.map(i => `
-                        <div class="d-flex justify-content-between">
-                            <span>${i.name}:</span>
-                            <span class="badge ${i.active ? 'bg-success' : 'bg-danger'}">
-                                ${i.active ? '🟢 نشط' : '🔴 غير نشط'}
-                            </span>
-                        </div>
-                    `).join('')}
+                    ${instances.map(i => `<div class="d-flex justify-content-between"><span>${i.name}:</span><span class="badge ${i.active ? 'bg-success' : 'bg-danger'}">${i.active ? '🟢 نشط' : '🔴 غير نشط'}</span></div>`).join('')}
                 </div>
                 
                 <h5>📋 الردود التلقائية الذكية</h5>
@@ -1131,6 +1468,23 @@
             displayAutoRules();
         }
         
+        function changeSelectedInstance(instanceId) {
+            const instance = instances.find(i => i.id === instanceId);
+            if (instance && instance.active) {
+                currentSelectedInstance = instance;
+                alert(`✅ تم التبديل إلى ${instance.name}`);
+            }
+        }
+        
+        function saveWelcomeMessage() {
+            const newMsg = document.getElementById('welcomeMsgInput').value;
+            if (newMsg) {
+                welcomeMessage = newMsg;
+                localStorage.setItem('welcomeMessage', welcomeMessage);
+                alert('✅ تم حفظ رسالة الترحيب');
+            }
+        }
+        
         function escapeHtml(str) {
             if (!str) return '';
             return String(str).replace(/[&<>]/g, function(m) {
@@ -1141,9 +1495,10 @@
             });
         }
         
-        // Load dashboard on start
+        // بدء النظام
+        startFollowUpSystem();
         showDashboard();
-        console.log('✅ نظام واتساب الذكي جاهز مع دعم رقمين واتساب');
+        console.log('✅ نظام واتساب الذكي جاهز مع دعم رقمين ومتابعة ذكية');
     </script>
 </body>
 </html>
