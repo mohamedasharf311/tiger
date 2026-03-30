@@ -1,5 +1,4 @@
 const axios = require('axios');
-const { getInstances, sendMessageViaInstance } = require('./auto-reply');
 
 // إعدادات الـ Instances المتعددة
 const instances = [
@@ -22,10 +21,10 @@ let autoRules = [
     { keywords: ['سعر', 'الثمن', 'كم سعر', 'بكام', 'price'], reply: '💰 سعر المنتج هو 100 جنيه مصري. هل تريد معرفة المزيد؟', active: true },
     { keywords: ['شكرا', 'ممتاز', 'تمام', 'ok', 'شكراً'], reply: '🎉 شكراً لك! نحن في خدمتك دائماً.', active: true },
     { keywords: ['طلب', 'اوردر', 'اطلب', 'order', 'شراء'], reply: '🛍️ مرحباً! لإنشاء طلب جديد، يرجى إرسال:\n1. اسمك الكامل\n2. العنوان\n3. اسم المنتج', active: true },
-    { keywords: ['توصيل', 'الشحن', 'delivery'], reply: '🚚 التوصيل خلال 3-5 أيام عمل. التكلفة 50 جنيهاً.', active: true }
+    { keywords: ['توصيل', 'الشحن', 'delivery'], reply: '🚚 التوصيل خلال 3-5 أيام عمل. التكلفة 50 جنيهاً.', active: true },
+    { keywords: ['مساعدة', 'help', 'الخدمات'], reply: '📋 الخدمات المتاحة:\n💰 الأسعار\n🛍️ الطلبات\n🚚 التوصيل\n📞 التواصل', active: true }
 ];
 
-// دالة إرسال رسالة باستخدام Instance محدد
 async function sendWhatsAppMessage(instance, phone, message) {
     try {
         let cleanPhone = phone.toString();
@@ -56,7 +55,6 @@ async function sendWhatsAppMessage(instance, phone, message) {
     }
 }
 
-// دالة البحث عن رد
 function findAutoReply(message) {
     if (!message) return null;
     const lowerMsg = message.toLowerCase();
@@ -71,14 +69,11 @@ function findAutoReply(message) {
     return null;
 }
 
-// دالة لتحديد الـ Instance المناسب
 function getInstanceForWebhook(data) {
-    // يمكن تحديد الـ Instance من خلال instance_id في الـ webhook
     if (data.instance_id) {
         const instance = instances.find(inst => inst.id === data.instance_id);
         if (instance && instance.active) return instance;
     }
-    // إذا لم يتم تحديد، نستخدم أول Instance نشط
     return instances.find(inst => inst.active);
 }
 
@@ -106,7 +101,6 @@ module.exports = async (req, res) => {
     let message = null;
     let instanceId = null;
     
-    // استخراج البيانات من payload
     if (data.event === 'message' && data.payload) {
         rawPhone = data.payload.from;
         message = data.payload.body;
@@ -120,9 +114,7 @@ module.exports = async (req, res) => {
     
     console.log(`📱 Raw phone: ${rawPhone}`);
     console.log(`💬 Message: ${message}`);
-    console.log(`🔌 Instance ID from webhook: ${instanceId || 'auto-detect'}`);
     
-    // تحديد الـ Instance للرد
     let targetInstance = null;
     
     if (instanceId) {
@@ -138,7 +130,6 @@ module.exports = async (req, res) => {
         return res.status(200).json({ received: true, error: 'No active instance' });
     }
     
-    // التحقق من أن الرقم ليس LID
     if (rawPhone.includes('@lid')) {
         console.log(`⚠️ Cannot reply to LID: ${rawPhone}`);
         return res.status(200).json({
@@ -149,14 +140,12 @@ module.exports = async (req, res) => {
         });
     }
     
-    // تنظيف رقم الهاتف
     let cleanPhone = rawPhone.replace('@c.us', '').replace('+', '').replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
     
     console.log(`📱 Clean phone: ${cleanPhone}`);
-    console.log(`🤖 Using instance: ${targetInstance.name} (${targetInstance.id})`);
+    console.log(`🤖 Using instance: ${targetInstance.name}`);
     
-    // التحقق من صحة الرقم
     if (cleanPhone.length < 10 || cleanPhone.length > 15) {
         console.log(`⚠️ Invalid phone number length: ${cleanPhone.length}`);
         return res.status(200).json({
@@ -167,7 +156,6 @@ module.exports = async (req, res) => {
         });
     }
     
-    // البحث عن رد
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
@@ -179,10 +167,12 @@ module.exports = async (req, res) => {
             instance: targetInstance.name
         });
     } else {
-        console.log(`⚠️ No auto-reply for: ${message}`);
+        const fallbackReply = '👋 شكراً لتواصلك! إذا كان لديك استفسار، اكتب "سعر" أو "طلب" أو "مساعدة"';
+        await sendWhatsAppMessage(targetInstance, cleanPhone, fallbackReply);
         return res.status(200).json({ 
-            received: true, 
-            replied: false,
+            success: true, 
+            replied: true,
+            reply: fallbackReply,
             instance: targetInstance.name
         });
     }
