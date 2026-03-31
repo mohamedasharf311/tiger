@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام واتساب الذكي - ردود تلقائية + متابعة ذكية + خدمة عملاء بشرية</title>
+    <title>نظام واتساب الذكي - النمر للشحن ELNMR | ردود تلقائية + متابعة ذكية + خدمة عملاء</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #d4af37 0%, #8B4513 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -41,16 +41,17 @@
             border-radius: 10px;
             padding: 15px;
             margin-bottom: 15px;
-            border-right: 4px solid #667eea;
+            border-right: 4px solid #d4af37;
         }
         .keyword-badge {
-            background: #667eea;
-            color: white;
+            background: #d4af37;
+            color: #8B4513;
             padding: 5px 10px;
             border-radius: 20px;
             font-size: 12px;
             margin: 3px;
             display: inline-block;
+            font-weight: bold;
         }
         .conversation-messages {
             max-height: 400px;
@@ -69,9 +70,10 @@
             border-bottom-right-radius: 4px;
         }
         .message-outgoing {
-            background: #667eea;
-            color: white;
+            background: #d4af37;
+            color: #8B4513;
             border-bottom-left-radius: 4px;
+            font-weight: bold;
         }
         .followup-message {
             background: #fff3cd;
@@ -93,7 +95,7 @@
             width: 20px;
             height: 20px;
             border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border-top: 3px solid #d4af37;
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
@@ -110,7 +112,7 @@
             text-align: left;
         }
         .instance-selector {
-            border: 2px solid #667eea;
+            border: 2px solid #d4af37;
             border-radius: 10px;
             padding: 10px;
             margin-bottom: 15px;
@@ -144,15 +146,30 @@
                 opacity: 1;
             }
         }
+        .company-header {
+            background: linear-gradient(135deg, #d4af37, #8B4513);
+            border-radius: 15px;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        .btn-gold {
+            background: #d4af37;
+            color: #8B4513;
+            font-weight: bold;
+        }
+        .btn-gold:hover {
+            background: #c0a030;
+            color: #5a2e0c;
+        }
     </style>
 </head>
 <body>
     <div id="notificationArea" class="notification-toast"></div>
     
     <div class="container">
-        <div class="text-center mb-4">
-            <h1 class="text-white">🤖 نظام واتساب الذكي</h1>
-            <p class="text-white">ردود تلقائية ذكية | متابعة ذكية | خدمة عملاء بشرية | وضع اختبار سريع</p>
+        <div class="company-header text-center mb-4">
+            <h1 class="text-white">🐯 النمر للشحن - ELNMR</h1>
+            <p class="text-white">شحن - تخزين - تغليف داخل الإسكندرية | خدمة VIP توصيل نفس اليوم</p>
         </div>
         
         <div class="row mb-4">
@@ -222,11 +239,11 @@
         
         <div class="card p-4" id="content">
             <div class="text-center">
-                <i class="fas fa-robot fa-3x text-primary mb-3"></i>
-                <h4>مرحباً بك في نظام واتساب الذكي</h4>
+                <i class="fas fa-truck fa-3x text-warning mb-3"></i>
+                <h4>مرحباً بك في خدمة عملاء النمر للشحن 🐯</h4>
                 <p>اختر إحدى الخدمات من الأعلى للبدء</p>
                 <hr>
-                <div class="alert alert-info">
+                <div class="alert alert-warning">
                     <i class="fas fa-check-circle"></i> النظام يدعم <strong>رقمين واتساب</strong> مع ردود تلقائية، متابعة ذكية، وخدمة عملاء بشرية
                 </div>
             </div>
@@ -239,7 +256,7 @@
             {
                 id: "instance3532",
                 token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
-                name: "الرقم الأول",
+                name: "الرقم الأول - النمر للشحن",
                 phone: "201158820081",
                 active: true,
                 createdAt: new Date().toISOString()
@@ -247,7 +264,7 @@
             {
                 id: "instance3537",
                 token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
-                name: "الرقم الثاني",
+                name: "الرقم الثاني - النمر للشحن",
                 phone: "201158820082",
                 active: true,
                 createdAt: new Date().toISOString()
@@ -261,7 +278,7 @@
         let orders = JSON.parse(localStorage.getItem('orders') || '[]');
         let autoRules = JSON.parse(localStorage.getItem('autoRules') || '[]');
         let conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
-        let welcomeMessage = localStorage.getItem('welcomeMessage') || 'مرحباً {name}! 👋\n\nشكراً لتواصلك معنا. كيف يمكننا مساعدتك اليوم؟';
+        let welcomeMessage = localStorage.getItem('welcomeMessage') || '🐯 أهلاً بيك في شركة النمر للشحن!\n\nمن فضلك اختار الرقم المناسب 👇\n\n1️⃣ أسعار الشحن داخل الإسكندرية\n2️⃣ أسعار الشحن خارج الإسكندرية\n3️⃣ مدة التوصيل\n4️⃣ طرق الدفع\n5️⃣ شروط الشحن\n6️⃣ التحدث مع خدمة العملاء';
         
         // ==================== FOLLOW-UP SYSTEM ====================
         let followUps = JSON.parse(localStorage.getItem('followUps') || '[]');
@@ -269,10 +286,10 @@
         let followUpSettings = {
             enabled: true,
             reminders: [
-                { hours: 1, message: "👋 مرحباً! لاحظت أنك لم ترد بعد. هل تحتاج مساعدة؟ يمكنك كتابة 'مساعدة' لمعرفة الخدمات المتاحة." },
-                { hours: 6, message: "🕐 مرحباً مجدداً! لا تزال خدماتنا متاحة. إذا كان لديك أي سؤال عن الأسعار أو المنتجات، فقط اكتب 'سعر' أو 'طلب'." },
-                { hours: 24, message: "📢 تذكير: نحن هنا لخدمتك! يمكنك التواصل معنا في أي وقت. للاستفسار عن المنتجات اكتب 'منتجات' أو 'سعر'." },
-                { hours: 48, message: "🎁 عرض خاص! إذا قمت بالطلب خلال اليوم، احصل على خصم 10% على أول طلب. اكتب 'طلب' للبدء." }
+                { hours: 1, message: "👋 مرحباً! لاحظت أنك لم ترد بعد. هل تحتاج مساعدة في أسعار الشحن؟ يمكنك كتابة '1' لمعرفة أسعار داخل الإسكندرية أو '2' لخارجها." },
+                { hours: 6, message: "🕐 مرحباً مجدداً! لا تزال خدمات النمر للشحن متاحة. إذا كان لديك أي سؤال عن الأسعار، فقط اكتب الرقم المناسب من القائمة." },
+                { hours: 24, message: "📢 تذكير: النمر للشحن يقدم خدمة VIP توصيل نفس اليوم. للاستفسار اكتب '6' للتواصل مع خدمة العملاء." },
+                { hours: 48, message: "🎁 عرض خاص! خصم 10% على أول شحنة للعملاء الجدد. اكتب 'طلب شحن' للبدء." }
             ],
             maxFollowUps: 4,
             checkInterval: 30
@@ -290,9 +307,9 @@
             triggerKeywords: [
                 'خدمة العملاء', 'خدمه العملاء', 'دعم', 'support', 
                 'تكلم مع موظف', 'موظف', 'تحكم', 'شكوى', 'مشكلة',
-                'اتصل بمسؤول', 'مسؤول', 'agent', 'human', 'شخص', 'مساعدة موظف'
+                'اتصل بمسؤول', 'مسؤول', 'agent', 'human', 'شخص', 'مساعدة موظف', '6'
             ],
-            autoReplyMessage: "👤 تم تحويل محادثتك إلى خدمة العملاء. سيتم الرد عليك يدوياً في أقرب وقت. شكراً لصبرك.",
+            autoReplyMessage: "👤 تم تحويل محادثتك إلى خدمة العملاء في النمر للشحن. سيتم الرد عليك يدوياً في أقرب وقت. شكراً لصبرك.",
             notifyAdmin: true,
             stopAutoReplyForCustomer: true
         };
@@ -314,19 +331,50 @@
             Object.assign(humanAgentSettings, JSON.parse(savedHumanAgentSettings));
         }
         
-        // ==================== AUTO RULES ====================
+        // ==================== COMPANY DATA ====================
+        const companyData = {
+            name: "النمر للشحن - ELNMR",
+            services: "شحن – تخزين – تغليف داخل الإسكندرية",
+            deliveryTimes: {
+                north: "داخل الوجه البحري: خلال 72 ساعة",
+                south: "وجه قبلي: خلال 5 أيام",
+                collection: "التحصيل: خلال 24 ساعة"
+            },
+            paymentMethods: "كاش - محفظة - إنستاباي - حساب بنكي",
+            shippingPrices: {
+                alexandria: {
+                    "60 جنيه": ["سيدي جابر", "جليم", "سموحة", "كفر عبده", "محطة الرمل", "محرم بك", "محطة مصر", "اللبان", "العطارين", "المنشية", "كرموز"],
+                    "65 جنيه": ["رأس السودة", "سيوف", "حجر النواتية", "خورشيد"],
+                    "70 جنيه": ["المندرة", "المعمورة", "طوسون", "أبو قير"],
+                    "75 جنيه": ["العجمي"],
+                    "90 جنيه": ["برج العرب"]
+                },
+                outsideAlexandria: {
+                    "100 جنيه": ["القاهرة", "بورسعيد", "الإسماعيلية", "الفيوم", "قنا"],
+                    "120 جنيه": ["سوهاج"]
+                }
+            },
+            terms: [
+                "السعر ممكن يتغير حسب البنزين",
+                "الأوردر القابل للكسر = مسؤولية العميل",
+                "في خدمة VIP توصيل نفس اليوم",
+                "يتم إضافة تكلفة بعد 5 كيلو",
+                "في تعاقدات للشركات بأسعار خاصة"
+            ]
+        };
+        
+        // ==================== AUTO RULES WITH MENU SYSTEM ====================
         if (autoRules.length === 0) {
             autoRules = [
-                { id: 1, keywords: ['سعر', 'الثمن', 'كم سعر', 'بكام', 'price'], reply: '💰 سعر المنتج هو 100 جنيه مصري. هل تريد معرفة المزيد من التفاصيل؟', active: true },
-                { id: 2, keywords: ['شكرا', 'ممتاز', 'تمام', 'ok', 'شكراً'], reply: '🎉 شكراً لك! نحن في خدمتك دائماً. هل تحتاج لأي شيء آخر؟', active: true },
-                { id: 3, keywords: ['طلب', 'اوردر', 'اطلب', 'order', 'شراء'], reply: '🛍️ مرحباً! لإنشاء طلب جديد، يرجى إرسال:\n1. اسمك الكامل\n2. العنوان\n3. اسم المنتج\n\nسيتم التواصل معك لتأكيد الطلب.', active: true },
-                { id: 4, keywords: ['توصيل', 'الشحن', 'delivery', 'شحن'], reply: '🚚 التوصيل خلال 3-5 أيام عمل. التكلفة 50 جنيهاً للتوصيل داخل القاهرة.', active: true },
-                { id: 5, keywords: ['مرحباً', 'السلام', 'اهلا', 'hello', 'hi'], reply: '👋 أهلاً بك! كيف يمكنني مساعدتك اليوم؟\n\nيمكنك الاستفسار عن:\n- الأسعار 💰\n- الطلبات 🛍️\n- التوصيل 🚚', active: true },
-                { id: 6, keywords: ['رقم', 'تلفون', 'واتساب', 'تواصل'], reply: '📞 يمكنك التواصل معنا عبر:\n- واتساب: 201158820082\n- الهاتف: 01158820082\n- البريد: support@example.com', active: true },
-                { id: 7, keywords: ['مساعدة', 'help', 'الخدمات'], reply: '📋 الخدمات المتاحة:\n💰 عرض الأسعار\n🛍️ إنشاء طلب جديد\n🚚 معلومات التوصيل\n📞 أرقام التواصل\n\nما الذي تريد معرفته؟', active: true },
-                { id: 8, keywords: ['تم الطلب', 'خلصنا', 'انتهى', 'تم الشراء', 'اشتريت', 'دفعت', 'حولت'], reply: '🎉 شكراً لك على ثقتك! تم تسجيل طلبك بنجاح. سنقوم بتوصيله في أقرب وقت. نتمنى لك يوماً سعيداً!', active: true },
-                { id: 9, keywords: ['اكد الطلب', 'تأكيد', 'confirmed', 'ok تم'], reply: '✅ تم تأكيد طلبك بنجاح! شكراً لك. سيتم إيقاف المتابعة التلقائية.', active: true },
-                { id: 10, keywords: ['خدمة العملاء', 'خدمه العملاء', 'دعم', 'support', 'تكلم مع موظف'], reply: "👤 تم تحويل محادثتك إلى خدمة العملاء. سيتم الرد عليك يدوياً في أقرب وقت. شكراً لصبرك.", active: true }
+                { id: 1, keywords: ['1', 'داخل الاسكندرية', 'داخل الإسكندرية', 'اسكندرية', 'الإسكندرية'], reply: `📍 أسعار الشحن داخل الإسكندرية:\n\n💰 60 جنيه:\n${companyData.shippingPrices.alexandria["60 جنيه"].join(' - ')}\n\n💰 65 جنيه:\n${companyData.shippingPrices.alexandria["65 جنيه"].join(' - ')}\n\n💰 70 جنيه:\n${companyData.shippingPrices.alexandria["70 جنيه"].join(' - ')}\n\n💰 75 جنيه:\n${companyData.shippingPrices.alexandria["75 جنيه"].join(' - ')}\n\n💰 90 جنيه:\n${companyData.shippingPrices.alexandria["90 جنيه"].join(' - ')}\n\nللرجوع للقائمة الرئيسية اكتب 'قائمة'`, active: true },
+                { id: 2, keywords: ['2', 'خارج الاسكندرية', 'خارج الإسكندرية', 'خارج'], reply: `📍 أسعار الشحن خارج الإسكندرية:\n\n💰 100 جنيه:\n${companyData.shippingPrices.outsideAlexandria["100 جنيه"].join(' - ')}\n\n💰 120 جنيه:\n${companyData.shippingPrices.outsideAlexandria["120 جنيه"].join(' - ')}\n\nللرجوع للقائمة الرئيسية اكتب 'قائمة'`, active: true },
+                { id: 3, keywords: ['3', 'مدة التوصيل', 'التوصيل', 'المدة', 'وقت'], reply: `⏱️ مدة التوصيل:\n\n• داخل الوجه البحري: ${companyData.deliveryTimes.north}\n• وجه قبلي: ${companyData.deliveryTimes.south}\n• التحصيل: ${companyData.deliveryTimes.collection}\n\nللرجوع للقائمة الرئيسية اكتب 'قائمة'`, active: true },
+                { id: 4, keywords: ['4', 'طرق الدفع', 'الدفع', 'payment'], reply: `💰 طرق الدفع في النمر للشحن:\n\n• كاش 💵\n• محفظة 📱\n• إنستاباي 🏦\n• تحويل بنكي 💳\n\nللرجوع للقائمة الرئيسية اكتب 'قائمة'`, active: true },
+                { id: 5, keywords: ['5', 'شروط', 'شروط الشحن', 'سياسة'], reply: `📋 شروط الشحن في النمر للشحن:\n\n${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}\n\nللرجوع للقائمة الرئيسية اكتب 'قائمة'`, active: true },
+                { id: 6, keywords: ['6', 'خدمة العملاء', 'خدمه العملاء', 'دعم', 'موظف'], reply: "👤 تم تحويل محادثتك إلى خدمة العملاء في النمر للشحن. سيتم الرد عليك يدوياً في أقرب وقت. شكراً لصبرك.", active: true },
+                { id: 7, keywords: ['قائمة', 'menu', 'الرئيسية', 'start', 'بداية'], reply: `🐯 أهلاً بيك في شركة النمر للشحن!\n\nمن فضلك اختار الرقم المناسب 👇\n\n1️⃣ أسعار الشحن داخل الإسكندرية\n2️⃣ أسعار الشحن خارج الإسكندرية\n3️⃣ مدة التوصيل\n4️⃣ طرق الدفع\n5️⃣ شروط الشحن\n6️⃣ التحدث مع خدمة العملاء`, active: true },
+                { id: 8, keywords: ['طلب شحن', 'شحن', 'شحنة', 'طلب', 'اوردر'], reply: `🛍️ لطلب شحنة جديدة، يرجى إرسال:\n1. اسمك الكامل\n2. العنوان بالتفصيل\n3. نوع البضاعة (عادي/قابل للكسر)\n4. الوزن التقريبي\n\nسيتم التواصل معك لتأكيد السعر والموعد.`, active: true },
+                { id: 9, keywords: ['vip', 'VIP', 'نفس اليوم', 'توصيل سريع'], reply: `🚚 خدمة VIP توصيل نفس اليوم:\n\n• متاحة داخل الإسكندرية فقط\n• السعر يبدأ من 150 جنيه حسب المنطقة\n• للطلب، تواصل مع خدمة العملاء (اضغط 6)`, active: true }
             ];
             localStorage.setItem('autoRules', JSON.stringify(autoRules));
         }
@@ -407,7 +455,7 @@
                 
                 conversations.unshift({
                     phone: phone,
-                    message: `👤 [تنبيه] تم تحويل العميل ${phone} إلى خدمة العملاء البشرية. سيتم إيقاف الردود التلقائية لهذا العميل.${message ? `\nالرسالة: ${message}` : ''}`,
+                    message: `👤 [تنبيه] تم تحويل العميل ${phone} إلى خدمة العملاء البشرية في النمر للشحن. سيتم إيقاف الردود التلقائية لهذا العميل.${message ? `\nالرسالة: ${message}` : ''}`,
                     direction: 'outgoing',
                     timestamp: new Date().toISOString(),
                     isAuto: true,
@@ -417,7 +465,7 @@
                 saveData();
                 
                 console.log(`👤 [خدمة العملاء] تم تحويل العميل ${phone} للموظف البشري`);
-                showNotification(`👤 طلب خدمة عملاء`, `العميل ${phone} يطلب التحدث مع موظف\nالرسالة: ${message.substring(0, 100)}`);
+                showNotification(`👤 طلب خدمة عملاء - النمر للشحن`, `العميل ${phone} يطلب التحدث مع موظف\nالرسالة: ${message.substring(0, 100)}`);
                 return true;
             }
             return false;
@@ -459,7 +507,7 @@
             const notificationDiv = document.getElementById('notificationArea');
             if (notificationDiv) {
                 const notificationHtml = `
-                    <div class="alert alert-warning alert-dismissible fade show shadow" role="alert" style="animation: slideIn 0.3s ease;">
+                    <div class="alert alert-warning alert-dismissible fade show shadow" role="alert" style="animation: slideIn 0.3s ease; background: #d4af37; color: #8B4513;">
                         <strong><i class="fas fa-headset"></i> ${escapeHtml(title)}</strong><br>
                         ${escapeHtml(message.substring(0, 150))}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" onclick="this.parentElement.remove()"></button>
@@ -569,7 +617,7 @@
                 followUp.completedReason = reason;
                 followUp.updatedAt = new Date().toISOString();
                 saveFollowUpSettings();
-                console.log(`✅ [اكتشاف الشراء] تم إكمال متابعة العميل ${phone} - السبب: ${reason}`);
+                console.log(`✅ [اكتشاف شراء] تم إكمال متابعة العميل ${phone} - السبب: ${reason}`);
                 return true;
             } else if (!followUp) {
                 followUps.push({
@@ -593,7 +641,7 @@
         
         function createNewOrder(customerName, phone, product) {
             const newOrder = {
-                id: `ORD-${Date.now()}`,
+                id: `SHIP-${Date.now()}`,
                 customerName: customerName,
                 phone: phone,
                 product: product,
@@ -617,7 +665,7 @@
                 saveData();
             }
             
-            sendAutoMessage(phone, `🎉 شكراً لك ${customerName}! تم استلام طلبك رقم ${newOrder.id}\nالمنتج: ${product}\nسيتم التواصل معك للتأكيد.`);
+            sendAutoMessage(phone, `🐯 شكراً لك ${customerName}! تم استلام طلب الشحن رقم ${newOrder.id}\nالبضاعة: ${product}\nسيتم التواصل معك للتأكيد وترتيب موعد الاستلام.`);
             
             return newOrder;
         }
@@ -625,7 +673,7 @@
         function addOrUpdateFollowUp(phone, name, lastMessage, lastMessageTime) {
             const hasCompletedOrder = orders.some(o => o.phone === phone && (o.status === 'completed' || o.status === 'pending'));
             if (hasCompletedOrder) {
-                console.log(`⚠️ العميل ${phone} لديه طلب، لن يتم إضافته للمتابعة`);
+                console.log(`⚠️ العميل ${phone} لديه طلب شحن، لن يتم إضافته للمتابعة`);
                 return null;
             }
             
@@ -820,24 +868,17 @@
                 });
                 saveData();
                 
-                showNotification(`💬 رسالة من عميل (خدمة عملاء)`, `${phone}: ${message.substring(0, 100)}`);
+                showNotification(`💬 رسالة من عميل (خدمة عملاء - النمر للشحن)`, `${phone}: ${message.substring(0, 100)}`);
                 
                 return { replied: false, isHumanAgentWaiting: true, message: null };
             }
             
-            const purchaseKeywords = ['تم الطلب', 'خلصنا', 'انتهى', 'تم الشراء', 'اشتريت', 'دفعت', 'حولت', 'اكد الطلب', 'تأكيد'];
+            const purchaseKeywords = ['طلب شحن', 'شحنة', 'شحن', 'اريد شحن'];
             const lowerMsg = message.toLowerCase();
             const isPurchaseCompletion = purchaseKeywords.some(keyword => lowerMsg.includes(keyword));
             
             if (isPurchaseCompletion) {
-                console.log(`🎉 [اكتشاف شراء] العميل ${phone} أكمل عملية الشراء!`);
-                const existingOrder = orders.find(o => o.phone === phone && o.status === 'pending');
-                if (existingOrder) {
-                    existingOrder.status = 'completed';
-                    existingOrder.completedAt = new Date().toISOString();
-                    saveData();
-                }
-                completeCustomerFollowUp(phone, 'purchase_completed');
+                console.log(`🎉 [اكتشاف طلب شحن] العميل ${phone} يريد إنشاء شحنة!`);
             }
             
             addOrUpdateFollowUp(phone, null, message);
@@ -870,7 +911,7 @@
                     });
                 }
             } else {
-                const fallbackReply = '👋 شكراً لتواصلك! سيتم الرد عليك قريباً. إذا كان لديك استفسار عن الأسعار أو الطلبات، يمكنك كتابة "سعر" أو "طلب"';
+                const fallbackReply = `🐯 أهلاً بيك في شركة النمر للشحن!\n\nمن فضلك اختار الرقم المناسب 👇\n\n1️⃣ أسعار الشحن داخل الإسكندرية\n2️⃣ أسعار الشحن خارج الإسكندرية\n3️⃣ مدة التوصيل\n4️⃣ طرق الدفع\n5️⃣ شروط الشحن\n6️⃣ التحدث مع خدمة العملاء`;
                 await sendAutoMessage(phone, fallbackReply, instanceId);
                 replyMessage = fallbackReply;
                 conversations.unshift({
@@ -942,11 +983,11 @@
             });
             
             document.getElementById('content').innerHTML = `
-                <h4><i class="fas fa-headset"></i> خدمة العملاء - طلبات التحدث مع موظف</h4>
+                <h4><i class="fas fa-headset"></i> خدمة العملاء - النمر للشحن</h4>
                 
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
-                    عندما يكتب العميل كلمات مثل "خدمة العملاء" أو "دعم" أو "تكلم مع موظف"، 
+                    عندما يكتب العميل كلمات مثل "خدمة العملاء" أو "دعم" أو "تكلم مع موظف" أو "6"، 
                     يتم تحويله إلى هذه القائمة وتتوقف الردود التلقائية.
                 </div>
                 
@@ -1024,7 +1065,7 @@
             if (sent) {
                 conversations.unshift({
                     phone: phone,
-                    message: `👨‍💼 [رد موظف]: ${message}`,
+                    message: `👨‍💼 [رد موظف - النمر للشحن]: ${message}`,
                     direction: 'outgoing',
                     timestamp: new Date().toISOString(),
                     isAuto: false,
@@ -1099,9 +1140,7 @@
             const waitingCount = followUps.filter(f => f.status === 'waiting').length;
             const repliedCount = followUps.filter(f => f.status === 'replied').length;
             const completedCount = followUps.filter(f => f.status === 'completed').length;
-            const totalFollowUps = followUps.reduce((sum, f) => sum + f.followUpCount, 0);
             const customersWithOrders = orders.length;
-            const humanAgentCount = humanAgentCustomers.length;
             
             let testModeHtml = '';
             if (testMode.enabled) {
@@ -1116,18 +1155,18 @@
             }
             
             document.getElementById('content').innerHTML = `
-                <h4><i class="fas fa-clock"></i> إعدادات المتابعة الذكية</h4>
+                <h4><i class="fas fa-clock"></i> إعدادات المتابعة الذكية - النمر للشحن</h4>
                 
                 ${testModeHtml}
                 
                 <div class="alert alert-success">
                     <i class="fas fa-info-circle"></i> 
-                    <strong>كيف يعرف النظام أن العميل اشترى؟</strong><br>
+                    <strong>كيف يعرف النظام أن العميل طلب شحنة؟</strong><br>
                     <div class="mt-2">
-                        ✅ <strong>الطريقة الأولى:</strong> عند إنشاء طلب جديد من خلال لوحة التحكم → يتم إيقاف المتابعة فوراً<br>
-                        ✅ <strong>الطريقة الثانية:</strong> عندما يرسل العميل كلمات مثل "تم الطلب" أو "اشتريت" أو "دفعت" → يكتشف النظام الشراء تلقائياً<br>
-                        ✅ <strong>الطريقة الثالثة:</strong> عند إكمال طلب موجود → يتم إيقاف المتابعة<br>
-                        ✅ <strong>الطريقة الرابعة:</strong> إذا كان العميل لديه أي طلب (معلق أو مكتمل) → لا يتم إضافته للمتابعة أبداً
+                        ✅ <strong>الطريقة الأولى:</strong> عند إنشاء طلب شحن جديد من خلال لوحة التحكم → يتم إيقاف المتابعة فوراً<br>
+                        ✅ <strong>الطريقة الثانية:</strong> عندما يرسل العميل كلمات مثل "طلب شحن" أو "شحنة" → يكتشف النظام طلب الشحن تلقائياً<br>
+                        ✅ <strong>الطريقة الثالثة:</strong> عند إكمال طلب شحن موجود → يتم إيقاف المتابعة<br>
+                        ✅ <strong>الطريقة الرابعة:</strong> إذا كان العميل لديه أي طلب شحن (معلق أو مكتمل) → لا يتم إضافته للمتابعة أبداً
                     </div>
                 </div>
                 
@@ -1236,13 +1275,13 @@
                     <div class="col-md-3">
                         <div class="alert alert-secondary text-center">
                             <strong>${completedCount}</strong><br>
-                            <small>مكتملين (تم الشراء)</small>
+                            <small>مكتملين (تم الشحن)</small>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="alert alert-info text-center">
                             <strong>${customersWithOrders}</strong><br>
-                            <small>عملاء لديهم طلبات</small>
+                            <small>عملاء لديهم شحنات</small>
                         </div>
                     </div>
                 </div>
@@ -1255,8 +1294,8 @@
                             ${followUps.map((f, idx) => `
                                 <tr class="${f.status === 'completed' ? 'table-secondary' : ''} ${f.name && f.name.includes('اختبار') ? 'table-info' : ''}">
                                     <td><strong>${escapeHtml(f.name || f.phone)}</strong>
-                                        ${f.completedReason === 'purchase_completed' ? '<span class="badge bg-success ms-1">✅ تم الشراء</span>' : ''}
-                                        ${f.completedReason === 'has_order' ? '<span class="badge bg-info ms-1">📦 لديه طلب</span>' : ''}
+                                        ${f.completedReason === 'purchase_completed' ? '<span class="badge bg-success ms-1">✅ تم الشحن</span>' : ''}
+                                        ${f.completedReason === 'has_order' ? '<span class="badge bg-info ms-1">📦 لديه شحنة</span>' : ''}
                                         ${f.name && f.name.includes('اختبار') ? '<span class="badge badge-test ms-1">🧪 اختبار</span>' : ''}
                                     </td>
                                     <td><small>${new Date(f.lastMessageTime).toLocaleString('ar')}</small></td>
@@ -1264,13 +1303,13 @@
                                     <td>${f.status === 'waiting' ? '<span class="badge bg-warning">⏳ في الانتظار</span>' : 
                                         f.status === 'replied' ? '<span class="badge bg-success">💬 رد</span>' : 
                                         '<span class="badge bg-secondary">✅ مكتمل</span>'}</td>
-                                    <td>${f.completedReason === 'purchase_completed' ? 'تم الشراء' : 
-                                        f.completedReason === 'has_order' ? 'لديه طلب' : 
+                                    <td>${f.completedReason === 'purchase_completed' ? 'تم الشحن' : 
+                                        f.completedReason === 'has_order' ? 'لديه شحنة' : 
                                         f.completedReason === 'max_attempts' ? 'انتهت المحاولات' : '-'}</td>
                                     <td>
                                         ${f.status !== 'completed' ? `
-                                            <button class="btn btn-sm btn-success" onclick="createNewOrder('${f.name}', '${f.phone}', 'منتج')" title="تسجيل شراء">
-                                                <i class="fas fa-shopping-cart"></i> شراء
+                                            <button class="btn btn-sm btn-success" onclick="createNewOrder('${f.name}', '${f.phone}', 'شحنة')" title="تسجيل شحنة">
+                                                <i class="fas fa-shipping-fast"></i> شحنة
                                             </button>
                                             <button class="btn btn-sm btn-secondary" onclick="simulateTimePassed('${f.phone}', 2)" title="محاكاة مرور ساعتين">
                                                 <i class="fas fa-clock"></i> محاكاة
@@ -1283,8 +1322,8 @@
                                         <button class="btn btn-sm btn-primary" onclick="sendTo('${f.phone}')">
                                             <i class="fas fa-paper-plane"></i> إرسال
                                         </button>
-                                    </td>
-                                </tr>
+                                     </td>
+                                 </tr>
                             `).join('')}
                             ${followUps.length === 0 ? '<tr><td colspan="6" class="text-center">لا توجد متابعات</td></tr>' : ''}
                         </tbody>
@@ -1359,8 +1398,8 @@
         
         // ==================== OTHER UI FUNCTIONS ====================
         function showInstances() {
-            let html = `<h4><i class="fas fa-server"></i> إدارة الأرقام</h4>
-                <div class="alert alert-info"><strong>📱 الأرقام النشطة:</strong><br>يمكنك إدارة الأرقام المتصلة</div>
+            let html = `<h4><i class="fas fa-server"></i> إدارة الأرقام - النمر للشحن</h4>
+                <div class="alert alert-info"><strong>📱 الأرقام النشطة:</strong><br>يمكنك إدارة الأرقام المتصلة بنظام النمر للشحن</div>
                 <div class="row">`;
             
             instances.forEach((inst, index) => {
@@ -1419,7 +1458,7 @@
         }
         
         function showCustomers() {
-            let html = `<div class="d-flex justify-content-between"><h4>العملاء</h4><button class="btn btn-primary" onclick="addCustomer()">➕ إضافة</button></div>
+            let html = `<div class="d-flex justify-content-between"><h4>العملاء - النمر للشحن</h4><button class="btn btn-primary" onclick="addCustomer()">➕ إضافة عميل</button></div>
                 <table class="table"><thead><tr><th>الاسم</th><th>الهاتف</th><th>التاريخ</th><th></th></tr></thead><tbody>`;
             customers.forEach((c, i) => {
                 html += `<tr><td>${escapeHtml(c.name)}</td><td>${c.phone}</td><td>${new Date(c.createdAt).toLocaleDateString()}</td>
@@ -1440,8 +1479,8 @@
         }
         
         function showOrders() {
-            let html = `<div class="d-flex justify-content-between"><h4>الطلبات</h4><button class="btn btn-primary" onclick="addOrder()">➕ إضافة طلب</button></div>
-                <table class="table"><thead><tr><th>رقم</th><th>العميل</th><th>المنتج</th><th>الحالة</th><th></th></tr></thead><tbody>`;
+            let html = `<div class="d-flex justify-content-between"><h4>الشحنات - النمر للشحن</h4><button class="btn btn-primary" onclick="addOrder()">➕ إضافة شحنة</button></div>
+                <table class="table"><thead><tr><th>رقم الشحنة</th><th>العميل</th><th>البضاعة</th><th>الحالة</th><th></th></tr></thead><tbody>`;
             orders.forEach((o, i) => {
                 html += `<tr><td>${o.id}</td><td>${escapeHtml(o.customerName)}</td><td>${o.product}</td>
                     <td><span class="badge ${o.status === 'pending' ? 'bg-warning' : 'bg-success'}">${o.status === 'pending' ? 'قيد المراجعة' : 'مكتمل'}</span></td>
@@ -1455,7 +1494,7 @@
         function addOrder() {
             const customerName = prompt('اسم العميل:');
             const phone = prompt('رقم الهاتف:');
-            const product = prompt('اسم المنتج:');
+            const product = prompt('نوع البضاعة:');
             if (customerName && phone && product) {
                 createNewOrder(customerName, phone, product);
                 showOrders();
@@ -1469,13 +1508,13 @@
                 orders[index].completedAt = new Date().toISOString();
                 saveData();
                 completeCustomerFollowUp(order.phone, 'purchase_completed');
-                sendAutoMessage(order.phone, '🎉 شكراً لك على ثقتك! تم تأكيد طلبك بنجاح.');
+                sendAutoMessage(order.phone, '🐯 شكراً لك على ثقتك في النمر للشحن! تم تأكيد شحنتك بنجاح. سنقوم بتوصيلها في أقرب وقت.');
                 showOrders();
             }
         }
         
         function deleteOrder(index) {
-            if (confirm('حذف هذا الطلب؟')) {
+            if (confirm('حذف هذه الشحنة؟')) {
                 orders.splice(index, 1);
                 saveData();
                 showOrders();
@@ -1485,11 +1524,11 @@
         function showSend() {
             const instanceOptions = instances.filter(i => i.active).map(i => `<option value="${i.id}">${i.name}</option>`).join('');
             document.getElementById('content').innerHTML = `
-                <h4>إرسال رسالة</h4>
+                <h4>إرسال رسالة - النمر للشحن</h4>
                 <select class="form-select mb-3" id="instanceSelector">${instanceOptions}</select>
                 <input type="text" class="form-control mb-2" id="phone" placeholder="رقم الهاتف">
                 <textarea class="form-control mb-2" id="message" rows="4" placeholder="الرسالة"></textarea>
-                <button class="btn btn-primary" onclick="sendMessage()">إرسال</button>
+                <button class="btn btn-gold" onclick="sendMessage()">إرسال</button>
                 <div id="sendResult" class="mt-2"></div>
                 <hr><h5>الردود التلقائية</h5><div id="autoReplyRules"></div>`;
             displayAutoRules();
@@ -1504,7 +1543,7 @@
         }
         
         function showConversations() {
-            let html = `<h4>سجل المحادثات</h4><div class="conversation-messages">`;
+            let html = `<h4>سجل المحادثات - النمر للشحن</h4><div class="conversation-messages">`;
             [...conversations].reverse().forEach(msg => {
                 const isIncoming = msg.direction === 'incoming';
                 const isTest = msg.isTest;
@@ -1529,7 +1568,7 @@
         
         function showRulesManager() {
             document.getElementById('content').innerHTML = `
-                <h4>إدارة الردود التلقائية</h4>
+                <h4>إدارة الردود التلقائية - النمر للشحن</h4>
                 <div class="card mb-3"><div class="card-header bg-primary text-white">➕ إضافة قاعدة</div>
                 <div class="card-body"><input type="text" class="form-control mb-2" id="newKeywords" placeholder="كلمات مفتاحية (مفصولة بفواصل)">
                 <textarea class="form-control mb-2" id="newReply" rows="3" placeholder="الرد"></textarea>
@@ -1571,10 +1610,10 @@
             const completedCount = followUps.filter(f => f.status === 'completed').length;
             const humanAgentCount = humanAgentCustomers.length;
             document.getElementById('content').innerHTML = `
-                <h4>لوحة التحكم</h4>
+                <h4>لوحة التحكم - النمر للشحن 🐯</h4>
                 <div class="row">
                     <div class="col-md-3"><div class="stat-card"><i class="fas fa-users fa-2x"></i><h3>${customers.length}</h3><p>عملاء</p></div></div>
-                    <div class="col-md-3"><div class="stat-card"><i class="fas fa-shopping-cart fa-2x"></i><h3>${orders.length}</h3><p>طلبات</p></div></div>
+                    <div class="col-md-3"><div class="stat-card"><i class="fas fa-shipping-fast fa-2x"></i><h3>${orders.length}</h3><p>شحنات</p></div></div>
                     <div class="col-md-3"><div class="stat-card"><i class="fas fa-clock fa-2x text-warning"></i><h3>${waitingCount}</h3><p>متابعة</p></div></div>
                     <div class="col-md-3"><div class="stat-card"><i class="fas fa-check-circle fa-2x text-success"></i><h3>${completedCount}</h3><p>مكتملين</p></div></div>
                 </div>
@@ -1582,11 +1621,11 @@
                     <div class="col-md-12"><div class="stat-card bg-danger bg-opacity-10"><i class="fas fa-headset fa-2x text-danger"></i><h3>${humanAgentCount}</h3><p>عملاء في خدمة العملاء</p></div></div>
                 </div>
                 ${testMode.enabled ? '<div class="alert alert-warning mt-3"><i class="fas fa-flask"></i> <strong>وضع الاختبار مفعل!</strong> أوقات المتابعة مضغوطة للاختبار السريع.</div>' : ''}
-                <div class="alert alert-success mt-3"><strong>🎯 كيف يعرف النظام أن العميل اشترى؟</strong><br>
-                - عند إنشاء طلب جديد من لوحة التحكم → إيقاف المتابعة فوراً<br>
-                - عندما يرسل العميل كلمات مثل "تم الطلب" أو "اشتريت" → اكتشاف تلقائي<br>
-                - عند إكمال طلب موجود → إيقاف المتابعة<br>
-                - إذا كان العميل لديه أي طلب → لا يتم إضافته للمتابعة</div>
+                <div class="alert alert-success mt-3"><strong>🐯 النمر للشحن - معلومات سريعة:</strong><br>
+                📍 أسعار الشحن داخل الإسكندرية: من 60 إلى 90 جنيه حسب المنطقة<br>
+                📍 أسعار الشحن خارج الإسكندرية: 100 جنيه (القاهرة - بورسعيد - الإسماعيلية - الفيوم - قنا)، 120 جنيه (سوهاج)<br>
+                ⏱️ مدة التوصيل: الوجه البحري 72 ساعة - الوجه القبلي 5 أيام<br>
+                💰 طرق الدفع: كاش - محفظة - إنستاباي - حساب بنكي</div>
                 <div class="row mt-3">
                     <div class="col-md-4"><button class="btn btn-warning w-100" onclick="showFollowUpSettings()"><i class="fas fa-clock"></i> إدارة المتابعة</button></div>
                     <div class="col-md-4"><button class="btn btn-danger w-100" onclick="showHumanAgentPanel()"><i class="fas fa-headset"></i> خدمة العملاء</button></div>
@@ -1603,7 +1642,7 @@
         
         startFollowUpSystem();
         showDashboard();
-        console.log('✅ نظام واتساب الذكي جاهز مع دعم رقمين، متابعة ذكية، وخدمة عملاء بشرية');
+        console.log('✅ نظام النمر للشحن الذكي جاهز مع دعم رقمين، متابعة ذكية، وخدمة عملاء بشرية');
     </script>
 </body>
 </html>
