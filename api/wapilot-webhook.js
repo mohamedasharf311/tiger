@@ -296,14 +296,6 @@ function findAutoReply(message) {
     return null;
 }
 
-function getInstanceForWebhook(data) {
-    if (data.instance_id) {
-        const instance = instances.find(inst => inst.id === data.instance_id);
-        if (instance && instance.active) return instance;
-    }
-    return instances.find(inst => inst.active);
-}
-
 // ==================== WEBHOOK HANDLER ====================
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -325,34 +317,57 @@ module.exports = async (req, res) => {
     }
     
     console.log('📩 Webhook received:', new Date().toISOString());
+    console.log('🔍 Full webhook data:', JSON.stringify(req.body, null, 2));
     
     const data = req.body;
     let rawPhone = null;
     let message = null;
-    let instanceId = null;
+    let incomingInstanceId = null;
     
+    // استخراج البيانات حسب تنسيق webhook
     if (data.event === 'message' && data.payload) {
         rawPhone = data.payload.from;
         message = data.payload.body;
-        instanceId = data.instance_id || data.webhook_id;
+        // 🔥 مهم: حفظ معرف الـ instance التي استلمت الرسالة
+        incomingInstanceId = data.instance_id || data.webhook_id;
+    }
+    
+    // محاولة تنسيقات أخرى
+    if (!rawPhone && data.from) {
+        rawPhone = data.from;
+        message = data.body || data.text;
+        incomingInstanceId = data.instance_id;
     }
     
     if (!rawPhone || !message) {
         console.log('⚠️ Missing phone or message');
-        return res.status(200).json({ received: true, error: 'Missing data' });
+        return res.status(200).json({ received: true, error: 'Missing data', raw: data });
     }
     
     console.log(`📱 Raw phone: ${rawPhone}`);
     console.log(`💬 Message: ${message}`);
+    console.log(`🔌 Incoming instance ID: ${incomingInstanceId || 'not provided'}`);
     
+    // 🔥 الخطوة الأساسية: تحديد الـ instance التي سترد (يجب أن تكون نفس المستقبلة)
     let targetInstance = null;
     
-    if (instanceId) {
-        targetInstance = instances.find(inst => inst.id === instanceId);
+    // أولاً: استخدام نفس الـ instance التي استلمت الرسالة
+    if (incomingInstanceId) {
+        targetInstance = instances.find(inst => inst.id === incomingInstanceId);
+        if (targetInstance && targetInstance.active) {
+            console.log(`✅ Using same instance that received the message: ${targetInstance.name}`);
+        } else if (targetInstance && !targetInstance.active) {
+            console.log(`⚠️ Instance ${incomingInstanceId} is not active`);
+            targetInstance = null;
+        } else {
+            console.log(`⚠️ Instance ID ${incomingInstanceId} not found in config`);
+        }
     }
     
+    // ثانياً: إذا لم نجد أو كان غير نشط، نستخدم أول instance نشط (حل احتياطي)
     if (!targetInstance) {
         targetInstance = instances.find(inst => inst.active);
+        console.log(`⚠️ No matching active instance found, using fallback: ${targetInstance?.name}`);
     }
     
     if (!targetInstance) {
@@ -360,6 +375,7 @@ module.exports = async (req, res) => {
         return res.status(200).json({ received: true, error: 'No active instance' });
     }
     
+    // التحقق من LID
     if (rawPhone.includes('@lid')) {
         console.log(`⚠️ Cannot reply to LID: ${rawPhone}`);
         return res.status(200).json({
@@ -370,11 +386,13 @@ module.exports = async (req, res) => {
         });
     }
     
+    // تنظيف رقم الهاتف
     let cleanPhone = rawPhone.replace('@c.us', '').replace('+', '').replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
     
     console.log(`📱 Clean phone: ${cleanPhone}`);
-    console.log(`🤖 Using instance: ${targetInstance.name}`);
+    console.log(`🤖 WILL REPLY FROM: ${targetInstance.name} (${targetInstance.id})`);
+    console.log(`🎯 Original message came from instance: ${incomingInstanceId || 'unknown'}`);
     
     if (cleanPhone.length < 10 || cleanPhone.length > 15) {
         console.log(`⚠️ Invalid phone number length: ${cleanPhone.length}`);
@@ -383,29 +401,3 @@ module.exports = async (req, res) => {
             error: 'Invalid phone number',
             phone: cleanPhone,
             instance: targetInstance.name
-        });
-    }
-    
-    const autoReply = findAutoReply(message);
-    
-    if (autoReply) {
-        console.log(`🤖 Auto-reply: ${autoReply.substring(0, 100)}...`);
-        await sendWhatsAppMessage(targetInstance, cleanPhone, autoReply);
-        return res.status(200).json({ 
-            success: true, 
-            replied: true,
-            reply: autoReply.substring(0, 100) + '...',
-            instance: targetInstance.name
-        });
-    } else {
-        // Send welcome message as fallback
-        const fallbackReply = companyData.welcomeMessage;
-        await sendWhatsAppMessage(targetInstance, cleanPhone, fallbackReply);
-        return res.status(200).json({ 
-            success: true, 
-            replied: true,
-            reply: 'Welcome menu sent',
-            instance: targetInstance.name
-        });
-    }
-};
