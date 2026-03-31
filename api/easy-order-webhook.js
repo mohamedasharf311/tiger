@@ -1,57 +1,250 @@
 const axios = require('axios');
-const { getInstances, sendMessageViaInstance } = require('./auto-reply');
 
-// إعدادات الـ Instances المتعددة
+// ==================== COMPANY DATA ====================
+const companyData = {
+    name: "النمر للشحن - ELNMR",
+    services: "شحن – تخزين – تغليف داخل الإسكندرية",
+    welcomeMessage: `🐯 أهلاً بيك في شركة النمر للشحن!
+
+من فضلك اختار الرقم المناسب 👇
+
+1️⃣ أسعار الشحن داخل الإسكندرية
+2️⃣ أسعار الشحن خارج الإسكندرية
+3️⃣ مدة التوصيل
+4️⃣ طرق الدفع
+5️⃣ شروط الشحن
+6️⃣ التحدث مع خدمة العملاء`,
+    
+    deliveryTimes: {
+        north: "داخل الوجه البحري: خلال 72 ساعة",
+        south: "وجه قبلي: خلال 5 أيام",
+        collection: "التحصيل: خلال 24 ساعة"
+    },
+    
+    paymentMethods: "كاش - محفظة - إنستاباي - حساب بنكي",
+    
+    shippingPrices: {
+        alexandria: {
+            "60 جنيه": ["سيدي جابر", "جليم", "سموحة", "كفر عبده", "محطة الرمل", "محرم بك", "محطة مصر", "اللبان", "العطارين", "المنشية", "كرموز"],
+            "65 جنيه": ["رأس السودة", "سيوف", "حجر النواتية", "خورشيد"],
+            "70 جنيه": ["المندرة", "المعمورة", "طوسون", "أبو قير"],
+            "75 جنيه": ["العجمي"],
+            "90 جنيه": ["برج العرب"]
+        },
+        outsideAlexandria: {
+            "100 جنيه": ["القاهرة", "بورسعيد", "الإسماعيلية", "الفيوم", "قنا"],
+            "120 جنيه": ["سوهاج"]
+        }
+    },
+    
+    terms: [
+        "السعر ممكن يتغير حسب البنزين",
+        "الأوردر القابل للكسر = مسؤولية العميل",
+        "في خدمة VIP توصيل نفس اليوم",
+        "يتم إضافة تكلفة بعد 5 كيلو",
+        "في تعاقدات للشركات بأسعار خاصة"
+    ]
+};
+
+// ==================== INSTANCES CONFIGURATION ====================
 const instances = [
     {
         id: "instance3532",
         token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
-        name: "الرقم الأول",
+        name: "الرقم الأول - النمر للشحن",
         active: true
     },
     {
         id: "instance3537",
         token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
-        name: "الرقم الثاني",
+        name: "الرقم الثاني - النمر للشحن",
         active: true
     }
 ];
 
-// قواعد الردود التلقائية
+// ==================== AUTO REPLY RULES ====================
 let autoRules = [
-    { keywords: ['سعر', 'الثمن', 'كم سعر', 'بكام', 'price'], reply: '💰 سعر المنتج هو 100 جنيه مصري. هل تريد معرفة المزيد؟', active: true },
-    { keywords: ['شكرا', 'ممتاز', 'تمام', 'ok', 'شكراً'], reply: '🎉 شكراً لك! نحن في خدمتك دائماً.', active: true },
-    { keywords: ['طلب', 'اوردر', 'اطلب', 'order', 'شراء'], reply: '🛍️ مرحباً! لإنشاء طلب جديد، يرجى إرسال:\n1. اسمك الكامل\n2. العنوان\n3. اسم المنتج', active: true },
-    { keywords: ['توصيل', 'الشحن', 'delivery'], reply: '🚚 التوصيل خلال 3-5 أيام عمل. التكلفة 50 جنيهاً.', active: true },
-    { keywords: ['اخبارك', 'ازيك', 'كيفك', 'how are you'], reply: '👋 أنا بخير، شكراً لسؤالك! كيف يمكنني مساعدتك اليوم؟', active: true }
+    // القائمة الرئيسية
+    {
+        keywords: ['قائمة', 'menu', 'الرئيسية', 'start', 'بداية', 'مرحباً', 'مرحبا', 'اهلا', 'أهلاً', 'السلام عليكم', 'وعليكم السلام', 'صباح الخير', 'مساء الخير', 'هاي', 'hello', 'hi', 'hey', 'ازيك', 'عامل ايه', 'عاملين ايه', 'اخبارك', 'كيفك', 'how are you'],
+        reply: companyData.welcomeMessage,
+        active: true
+    },
+    
+    // 1️⃣ أسعار الشحن داخل الإسكندرية
+    {
+        keywords: ['1', 'داخل الاسكندرية', 'داخل الإسكندرية', 'اسكندرية', 'الإسكندرية', 'اسعار اسكندرية', 'اسعار داخل', 'سعر', 'الثمن', 'كم سعر', 'بكام', 'price'],
+        reply: `📍 أسعار الشحن داخل الإسكندرية:
+
+💰 60 جنيه:
+${companyData.shippingPrices.alexandria["60 جنيه"].join(' - ')}
+
+💰 65 جنيه:
+${companyData.shippingPrices.alexandria["65 جنيه"].join(' - ')}
+
+💰 70 جنيه:
+${companyData.shippingPrices.alexandria["70 جنيه"].join(' - ')}
+
+💰 75 جنيه:
+${companyData.shippingPrices.alexandria["75 جنيه"].join(' - ')}
+
+💰 90 جنيه:
+${companyData.shippingPrices.alexandria["90 جنيه"].join(' - ')}
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+        active: true
+    },
+    
+    // 2️⃣ أسعار الشحن خارج الإسكندرية
+    {
+        keywords: ['2', 'خارج الاسكندرية', 'خارج الإسكندرية', 'خارج', 'اسعار خارج', 'القاهرة', 'بورسعيد', 'الإسماعيلية', 'الفيوم', 'قنا', 'سوهاج'],
+        reply: `📍 أسعار الشحن خارج الإسكندرية:
+
+💰 100 جنيه:
+${companyData.shippingPrices.outsideAlexandria["100 جنيه"].join(' - ')}
+
+💰 120 جنيه:
+${companyData.shippingPrices.outsideAlexandria["120 جنيه"].join(' - ')}
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+        active: true
+    },
+    
+    // 3️⃣ مدة التوصيل
+    {
+        keywords: ['3', 'مدة التوصيل', 'التوصيل', 'المدة', 'وقت', 'كم يوم', 'مدة الشحن', 'المدة كام', 'توصيل', 'الشحن', 'delivery'],
+        reply: `⏱️ مدة التوصيل في النمر للشحن:
+
+• ${companyData.deliveryTimes.north}
+• ${companyData.deliveryTimes.south}
+• ${companyData.deliveryTimes.collection}
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+        active: true
+    },
+    
+    // 4️⃣ طرق الدفع
+    {
+        keywords: ['4', 'طرق الدفع', 'الدفع', 'payment', 'كيف ادفع', 'ادفع ازاي', 'طرق السداد', 'السداد'],
+        reply: `💰 طرق الدفع في النمر للشحن:
+
+• كاش 💵
+• محفظة 📱 (فودافون كاش - انستاباي)
+• إنستاباي 🏦
+• تحويل بنكي 💳
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+        active: true
+    },
+    
+    // 5️⃣ شروط الشحن
+    {
+        keywords: ['5', 'شروط', 'شروط الشحن', 'سياسة', 'قوانين', 'ممنوع', 'مسموح', 'ضمان'],
+        reply: `📋 شروط الشحن في النمر للشحن:
+
+${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+        active: true
+    },
+    
+    // 6️⃣ التحدث مع خدمة العملاء
+    {
+        keywords: ['6', 'خدمة العملاء', 'خدمه العملاء', 'دعم', 'support', 'تكلم مع موظف', 'موظف', 'تحكم', 'شكوى', 'مشكلة', 'اتصل بمسؤول', 'مسؤول', 'agent', 'human', 'شخص'],
+        reply: "👤 تم تحويل محادثتك إلى خدمة العملاء في النمر للشحن. سيتم الرد عليك يدوياً في أقرب وقت. شكراً لصبرك.",
+        active: true
+    },
+    
+    // طلب شحن جديد
+    {
+        keywords: ['طلب شحن', 'شحنة', 'شحن', 'طلب', 'اوردر', 'اطلب', 'order', 'شراء', 'عايز أطلب', 'عايز اشتري', 'احجز'],
+        reply: `🛍️ لطلب شحنة جديدة في النمر للشحن، يرجى إرسال:
+
+1️⃣ اسمك الكامل
+2️⃣ العنوان بالتفصيل (المنطقة - الشارع)
+3️⃣ نوع البضاعة (عادي / قابل للكسر)
+4️⃣ الوزن التقريبي (بالكيلو)
+
+سيتم التواصل معك لتأكيد السعر وموعد الاستلام.
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+        active: true
+    },
+    
+    // خدمة VIP
+    {
+        keywords: ['vip', 'VIP', 'نفس اليوم', 'توصيل سريع', 'توصيل فوري', 'سريع', 'عاجل'],
+        reply: `🚚 خدمة VIP توصيل نفس اليوم في النمر للشحن:
+
+• متاحة داخل الإسكندرية فقط
+• السعر يبدأ من 150 جنيه حسب المنطقة والوزن
+• للطلب، تواصل مع خدمة العملاء (اضغط 6)
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+        active: true
+    },
+    
+    // شكر وتأكيد
+    {
+        keywords: ['شكرا', 'ممتاز', 'تمام', 'ok', 'شكراً', 'تسلم', 'الله يبارك فيك', 'حلو', 'جميل', 'تم', 'مشكور'],
+        reply: `🎉 شكراً لك على تواصلك مع النمر للشحن!
+
+نحن في خدمتك دائماً. إذا احتجت أي مساعدة أخرى، فقط اكتب 'قائمة' للعودة للخدمات المتاحة.
+
+نتمنى لك يوماً سعيداً! 🐯`,
+        active: true
+    },
+    
+    // استفسارات عامة
+    {
+        keywords: ['عايز استفسر', 'عندي سؤال', 'ممكن اسأل', 'محتاج اعرف', 'عايز اعرف', 'عندكم', 'هل يوجد', 'متوفر'],
+        reply: `📋 للاستفسار عن خدمات النمر للشحن:
+
+لدينا الخدمات التالية:
+• شحن داخل وخارج الإسكندرية
+• تخزين بضائع
+• تغليف
+• خدمة VIP توصيل نفس اليوم
+
+للحصول على معلومات محددة:
+• اضغط 1 لأسعار داخل الإسكندرية
+• اضغط 2 لأسعار خارج الإسكندرية
+• اضغط 3 لمدة التوصيل
+• اضغط 4 لطرق الدفع
+• اضغط 5 للشروط والسياسات
+• اضغط 6 للتواصل مع خدمة العملاء
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+        active: true
+    }
 ];
 
-// دالة البحث عن رد
+// ==================== HELPER FUNCTIONS ====================
 function findAutoReply(message) {
     if (!message) return null;
-    const lowerMsg = message.toLowerCase();
+    const lowerMsg = message.toLowerCase().trim();
+    
     for (let rule of autoRules) {
         if (!rule.active) continue;
         for (let keyword of rule.keywords) {
             if (lowerMsg.includes(keyword.toLowerCase())) {
+                console.log(`✅ Found rule - Keyword: ${keyword}`);
                 return rule.reply;
             }
         }
     }
+    
+    console.log(`⚠️ No auto-reply found for: ${message}`);
     return null;
 }
 
-// دالة لتحديد أي Instance استقبل الرسالة (بناءً على webhook)
 function getInstanceFromWebhook(data) {
-    // يمكن تحديد الـ Instance من data.webhook_id أو data.instance_id إذا كانت موجودة
     if (data.instance_id) {
         return instances.find(inst => inst.id === data.instance_id);
     }
-    // إذا لم يتم تحديد، نستخدم الـ Instance الأول النشط
     return instances.find(inst => inst.active);
 }
 
-// دالة إرسال رسالة باستخدام Instance محدد
 async function sendWhatsAppMessage(instance, chat_id, message) {
     try {
         console.log(`📤 [${instance.name}] Sending to: ${chat_id}`);
@@ -63,13 +256,14 @@ async function sendWhatsAppMessage(instance, chat_id, message) {
         );
         
         console.log(`✅ [${instance.name}] Sent successfully to ${chat_id}`);
-        return { success: true };
+        return { success: true, data: response.data };
     } catch (error) {
         console.error(`❌ [${instance.name}] Send failed:`, error.response?.data || error.message);
         return { success: false, error: error.response?.data || error.message };
     }
 }
 
+// ==================== WEBHOOK HANDLER ====================
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
@@ -82,8 +276,10 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
         return res.status(200).json({ 
             status: 'active', 
-            message: 'Easy Order Webhook is running (Dual Instance)',
+            company: companyData.name,
+            message: 'النمر للشحن - Webhook is running (Dual Instance)',
             instances: instances.map(i => ({ id: i.id, name: i.name, active: i.active })),
+            rulesCount: autoRules.filter(r => r.active).length,
             timestamp: new Date().toISOString()
         });
     }
@@ -95,7 +291,6 @@ module.exports = async (req, res) => {
     let message = null;
     let webhookInstanceId = null;
     
-    // استخراج البيانات من payload
     if (data.payload) {
         rawChatId = data.payload.from;
         message = data.payload.body;
@@ -115,7 +310,6 @@ module.exports = async (req, res) => {
     console.log(`💬 Message: ${message}`);
     console.log(`🔌 Webhook Instance: ${webhookInstanceId || 'auto-detect'}`);
     
-    // تحديد أي Instance سيتم استخدامه للرد
     let targetInstance = null;
     
     if (webhookInstanceId) {
@@ -136,27 +330,27 @@ module.exports = async (req, res) => {
     console.log(`📤 Using instance: ${targetInstance.name} (${targetInstance.id})`);
     console.log(`📤 Sending to chat_id: ${chatId}`);
     
-    // البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
-        console.log(`🤖 Auto-reply: ${autoReply.substring(0, 50)}...`);
+        console.log(`🤖 Auto-reply: ${autoReply.substring(0, 100)}...`);
         const result = await sendWhatsAppMessage(targetInstance, chatId, autoReply);
         return res.status(200).json({ 
             success: true, 
             replied: true, 
-            reply: autoReply,
+            reply: autoReply.substring(0, 100) + (autoReply.length > 100 ? '...' : ''),
             chat_id: chatId,
-            instance: targetInstance.name
+            instance: targetInstance.name,
+            result: result.success
         });
     } else {
-        console.log(`⚠️ No auto-reply found for: ${message}`);
-        const fallback = '👋 شكراً لتواصلك! إذا كان لديك استفسار، اكتب "سعر" أو "طلب" أو "اخبارك"';
+        console.log(`⚠️ No auto-reply found, sending welcome message`);
+        const fallback = companyData.welcomeMessage;
         await sendWhatsAppMessage(targetInstance, chatId, fallback);
         return res.status(200).json({ 
             success: true, 
             replied: true, 
-            reply: fallback,
+            reply: 'Welcome menu sent',
             chat_id: chatId,
             instance: targetInstance.name
         });
