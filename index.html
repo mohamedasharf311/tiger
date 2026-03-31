@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام واتساب الذكي - ردود تلقائية 24 ساعة - متابعة ذكية مع وضع الاختبار</title>
+    <title>نظام واتساب الذكي - ردود تلقائية + متابعة ذكية + خدمة عملاء بشرية</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -83,6 +83,11 @@
             border-right: 4px solid #17a2b8;
             color: #0c5460;
         }
+        .human-agent-message {
+            background: #f8d7da;
+            border-right: 4px solid #dc3545;
+            color: #721c24;
+        }
         .loading {
             display: inline-block;
             width: 20px;
@@ -118,13 +123,36 @@
         .badge-test {
             background-color: #17a2b8;
         }
+        .badge-human {
+            background-color: #dc3545;
+        }
+        .notification-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
+    <div id="notificationArea" class="notification-toast"></div>
+    
     <div class="container">
         <div class="text-center mb-4">
             <h1 class="text-white">🤖 نظام واتساب الذكي</h1>
-            <p class="text-white">ردود تلقائية ذكية 24 ساعة | دعم رقمين واتساب | متابعة ذكية | وضع اختبار سريع</p>
+            <p class="text-white">ردود تلقائية ذكية | متابعة ذكية | خدمة عملاء بشرية | وضع اختبار سريع</p>
         </div>
         
         <div class="row mb-4">
@@ -177,7 +205,17 @@
                 <div class="card text-center p-2 bg-warning bg-opacity-25" onclick="showFollowUpSettings()">
                     <i class="fas fa-clock fa-1x text-warning"></i>
                     <span>المتابعة الذكية</span>
-                    <small class="text-muted d-block">تذكيرات تلقائية + اختبار</small>
+                    <small class="text-muted d-block">تذكيرات تلقائية</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <div class="card text-center p-2 bg-danger bg-opacity-25" onclick="showHumanAgentPanel()">
+                    <i class="fas fa-headset fa-1x text-danger"></i>
+                    <span>خدمة العملاء البشرية</span>
+                    <small class="text-muted d-block">طلبات التحدث مع موظف</small>
                 </div>
             </div>
         </div>
@@ -189,7 +227,7 @@
                 <p>اختر إحدى الخدمات من الأعلى للبدء</p>
                 <hr>
                 <div class="alert alert-info">
-                    <i class="fas fa-check-circle"></i> النظام يدعم <strong>رقمين واتساب</strong> مع نظام ردود تلقائية ومتابعة ذكية ووضع اختبار سريع
+                    <i class="fas fa-check-circle"></i> النظام يدعم <strong>رقمين واتساب</strong> مع ردود تلقائية، متابعة ذكية، وخدمة عملاء بشرية
                 </div>
             </div>
         </div>
@@ -246,6 +284,21 @@
             speedMultiplier: 3600
         };
         
+        // ==================== HUMAN AGENT MODE SETTINGS ====================
+        let humanAgentSettings = {
+            enabled: true,
+            triggerKeywords: [
+                'خدمة العملاء', 'خدمه العملاء', 'دعم', 'support', 
+                'تكلم مع موظف', 'موظف', 'تحكم', 'شكوى', 'مشكلة',
+                'اتصل بمسؤول', 'مسؤول', 'agent', 'human', 'شخص', 'مساعدة موظف'
+            ],
+            autoReplyMessage: "👤 تم تحويل محادثتك إلى خدمة العملاء. سيتم الرد عليك يدوياً في أقرب وقت. شكراً لصبرك.",
+            notifyAdmin: true,
+            stopAutoReplyForCustomer: true
+        };
+        
+        let humanAgentCustomers = JSON.parse(localStorage.getItem('humanAgentCustomers') || '[]');
+        
         const savedSettings = localStorage.getItem('followUpSettings');
         if (savedSettings) {
             Object.assign(followUpSettings, JSON.parse(savedSettings));
@@ -254,6 +307,11 @@
         const savedTestMode = localStorage.getItem('testMode');
         if (savedTestMode) {
             testMode = JSON.parse(savedTestMode);
+        }
+        
+        const savedHumanAgentSettings = localStorage.getItem('humanAgentSettings');
+        if (savedHumanAgentSettings) {
+            Object.assign(humanAgentSettings, JSON.parse(savedHumanAgentSettings));
         }
         
         // ==================== AUTO RULES ====================
@@ -267,7 +325,8 @@
                 { id: 6, keywords: ['رقم', 'تلفون', 'واتساب', 'تواصل'], reply: '📞 يمكنك التواصل معنا عبر:\n- واتساب: 201158820082\n- الهاتف: 01158820082\n- البريد: support@example.com', active: true },
                 { id: 7, keywords: ['مساعدة', 'help', 'الخدمات'], reply: '📋 الخدمات المتاحة:\n💰 عرض الأسعار\n🛍️ إنشاء طلب جديد\n🚚 معلومات التوصيل\n📞 أرقام التواصل\n\nما الذي تريد معرفته؟', active: true },
                 { id: 8, keywords: ['تم الطلب', 'خلصنا', 'انتهى', 'تم الشراء', 'اشتريت', 'دفعت', 'حولت'], reply: '🎉 شكراً لك على ثقتك! تم تسجيل طلبك بنجاح. سنقوم بتوصيله في أقرب وقت. نتمنى لك يوماً سعيداً!', active: true },
-                { id: 9, keywords: ['اكد الطلب', 'تأكيد', 'confirmed', 'ok تم'], reply: '✅ تم تأكيد طلبك بنجاح! شكراً لك. سيتم إيقاف المتابعة التلقائية.', active: true }
+                { id: 9, keywords: ['اكد الطلب', 'تأكيد', 'confirmed', 'ok تم'], reply: '✅ تم تأكيد طلبك بنجاح! شكراً لك. سيتم إيقاف المتابعة التلقائية.', active: true },
+                { id: 10, keywords: ['خدمة العملاء', 'خدمه العملاء', 'دعم', 'support', 'تكلم مع موظف'], reply: "👤 تم تحويل محادثتك إلى خدمة العملاء. سيتم الرد عليك يدوياً في أقرب وقت. شكراً لصبرك.", active: true }
             ];
             localStorage.setItem('autoRules', JSON.stringify(autoRules));
         }
@@ -291,6 +350,11 @@
         function saveFollowUpSettings() {
             localStorage.setItem('followUpSettings', JSON.stringify(followUpSettings));
             localStorage.setItem('followUps', JSON.stringify(followUps));
+        }
+        
+        function saveHumanAgentSettings() {
+            localStorage.setItem('humanAgentSettings', JSON.stringify(humanAgentSettings));
+            localStorage.setItem('humanAgentCustomers', JSON.stringify(humanAgentCustomers));
         }
         
         const savedInstances = localStorage.getItem('instances');
@@ -331,6 +395,93 @@
             }
         }
         
+        // ==================== HUMAN AGENT FUNCTIONS ====================
+        function isCustomerInHumanAgentMode(phone) {
+            return humanAgentCustomers.includes(phone);
+        }
+        
+        function addCustomerToHumanAgent(phone, message = '') {
+            if (!humanAgentCustomers.includes(phone)) {
+                humanAgentCustomers.push(phone);
+                saveHumanAgentSettings();
+                
+                conversations.unshift({
+                    phone: phone,
+                    message: `👤 [تنبيه] تم تحويل العميل ${phone} إلى خدمة العملاء البشرية. سيتم إيقاف الردود التلقائية لهذا العميل.${message ? `\nالرسالة: ${message}` : ''}`,
+                    direction: 'outgoing',
+                    timestamp: new Date().toISOString(),
+                    isAuto: true,
+                    isSystem: true,
+                    isHumanAgentNotification: true
+                });
+                saveData();
+                
+                console.log(`👤 [خدمة العملاء] تم تحويل العميل ${phone} للموظف البشري`);
+                showNotification(`👤 طلب خدمة عملاء`, `العميل ${phone} يطلب التحدث مع موظف\nالرسالة: ${message.substring(0, 100)}`);
+                return true;
+            }
+            return false;
+        }
+        
+        function removeCustomerFromHumanAgent(phone) {
+            const index = humanAgentCustomers.indexOf(phone);
+            if (index !== -1) {
+                humanAgentCustomers.splice(index, 1);
+                saveHumanAgentSettings();
+                
+                conversations.unshift({
+                    phone: phone,
+                    message: `✅ [تنبيه] تم إنهاء وضع خدمة العملاء للعميل ${phone}. تم تفعيل الردود التلقائية مرة أخرى.`,
+                    direction: 'outgoing',
+                    timestamp: new Date().toISOString(),
+                    isAuto: true,
+                    isSystem: true
+                });
+                saveData();
+                
+                console.log(`✅ تم إزالة العميل ${phone} من وضع خدمة العملاء`);
+                return true;
+            }
+            return false;
+        }
+        
+        function containsHumanAgentKeywords(message) {
+            if (!humanAgentSettings.enabled) return false;
+            const lowerMsg = message.toLowerCase();
+            return humanAgentSettings.triggerKeywords.some(keyword => 
+                lowerMsg.includes(keyword.toLowerCase())
+            );
+        }
+        
+        function showNotification(title, message) {
+            if (!humanAgentSettings.notifyAdmin) return;
+            
+            const notificationDiv = document.getElementById('notificationArea');
+            if (notificationDiv) {
+                const notificationHtml = `
+                    <div class="alert alert-warning alert-dismissible fade show shadow" role="alert" style="animation: slideIn 0.3s ease;">
+                        <strong><i class="fas fa-headset"></i> ${escapeHtml(title)}</strong><br>
+                        ${escapeHtml(message.substring(0, 150))}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" onclick="this.parentElement.remove()"></button>
+                    </div>
+                `;
+                notificationDiv.innerHTML = notificationHtml + notificationDiv.innerHTML;
+                
+                setTimeout(() => {
+                    const alerts = notificationDiv.querySelectorAll('.alert');
+                    if (alerts.length > 3) {
+                        alerts[alerts.length - 1]?.remove();
+                    }
+                }, 5000);
+            }
+            
+            if (Notification.permission === 'granted') {
+                new Notification(title, { body: message.substring(0, 100) });
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
+        }
+        
         // ==================== TEST MODE FUNCTIONS ====================
         function getTestReminderHours(originalHours) {
             if (!testMode.enabled) return originalHours;
@@ -348,21 +499,6 @@
             }
             
             alert(`✅ وضع الاختبار ${enabled ? 'مفعل' : 'غير مفعل'}\n${enabled ? `⚠️ ملاحظة: 1 ساعة = ${(3600/multiplier).toFixed(1)} ثانية` : ''}`);
-        }
-        
-        function toggleTestMode(enabled) {
-            updateTestMode(enabled, testMode.speedMultiplier);
-            showFollowUpSettings();
-        }
-        
-        function setTestSpeed() {
-            const multiplier = parseInt(document.getElementById('testSpeedMultiplier').value);
-            if (multiplier >= 60) {
-                updateTestMode(testMode.enabled, multiplier);
-                showFollowUpSettings();
-            } else {
-                alert('السرعة يجب أن تكون 60 على الأقل');
-            }
         }
         
         async function forceCheckNow() {
@@ -409,25 +545,6 @@
             }
         }
         
-        async function sendImmediateFollowUp(phone) {
-            const message = prompt('أدخل رسالة المتابعة (للاختبار الفوري):', '🧪 هذا اختبار فوري لنظام المتابعة');
-            if (!message) return;
-            
-            const sent = await sendAutoMessage(phone, message);
-            if (sent) {
-                const followUp = followUps.find(f => f.phone === phone);
-                if (followUp) {
-                    followUp.lastMessageTime = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-                    followUp.lastFollowUpSent = null;
-                    saveFollowUpSettings();
-                    alert('✅ تم إرسال رسالة اختبار وتحديث وقت آخر رسالة');
-                }
-                showFollowUpSettings();
-            } else {
-                alert('❌ فشل إرسال الرسالة');
-            }
-        }
-        
         function simulateTimePassed(phone, hours) {
             const followUp = followUps.find(f => f.phone === phone);
             if (followUp) {
@@ -453,16 +570,6 @@
                 followUp.updatedAt = new Date().toISOString();
                 saveFollowUpSettings();
                 console.log(`✅ [اكتشاف الشراء] تم إكمال متابعة العميل ${phone} - السبب: ${reason}`);
-                
-                conversations.unshift({
-                    phone: phone,
-                    message: `✅ [نظام المتابعة] تم إيقاف المتابعة التلقائية لهذا العميل. السبب: ${reason === 'purchase_completed' ? 'تم إتمام عملية الشراء' : reason}`,
-                    direction: 'outgoing',
-                    timestamp: new Date().toISOString(),
-                    isAuto: true,
-                    isSystem: true
-                });
-                saveData();
                 return true;
             } else if (!followUp) {
                 followUps.push({
@@ -572,9 +679,6 @@
             const now = new Date();
             let sentCount = 0;
             
-            console.log(`🔍 [فحص المتابعة] بدء الفحص - ${now.toLocaleTimeString()}`);
-            console.log(`📊 عدد العملاء في قائمة المتابعة: ${followUps.length}`);
-            
             for (let followUp of followUps) {
                 const hasOrder = orders.some(o => o.phone === followUp.phone);
                 if (hasOrder) {
@@ -582,15 +686,11 @@
                         followUp.status = 'completed';
                         followUp.completedReason = 'has_order';
                         saveFollowUpSettings();
-                        console.log(`⏭️ [تخطي] العميل ${followUp.phone} لديه طلب - تم إيقاف المتابعة`);
                     }
                     continue;
                 }
                 
-                if (followUp.status === 'replied' || followUp.status === 'completed') {
-                    continue;
-                }
-                
+                if (followUp.status === 'replied' || followUp.status === 'completed') continue;
                 if (followUp.followUpCount >= followUpSettings.maxFollowUps) {
                     followUp.status = 'completed';
                     followUp.completedReason = 'max_attempts';
@@ -601,17 +701,11 @@
                 const lastMessageTime = new Date(followUp.lastMessageTime);
                 let hoursSinceLastMessage = (now - lastMessageTime) / (1000 * 60 * 60);
                 
-                let displayHours = hoursSinceLastMessage;
                 if (testMode.enabled) {
-                    const testHours = hoursSinceLastMessage * testMode.speedMultiplier;
-                    console.log(`🧪 [وضع الاختبار] العميل ${followUp.phone}: الوقت الحقيقي ${hoursSinceLastMessage.toFixed(2)} ساعة → وقت الاختبار ${testHours.toFixed(2)} ساعة`);
-                    hoursSinceLastMessage = testHours;
+                    hoursSinceLastMessage = hoursSinceLastMessage * testMode.speedMultiplier;
                 }
                 
-                console.log(`⏰ العميل ${followUp.phone}: مضى ${hoursSinceLastMessage.toFixed(1)} ساعة منذ آخر رسالة (محاولات: ${followUp.followUpCount}/${followUpSettings.maxFollowUps})`);
-                
                 let reminderToSend = null;
-                let reminderIndex = -1;
                 
                 for (let i = 0; i < followUpSettings.reminders.length; i++) {
                     const reminder = followUpSettings.reminders[i];
@@ -628,19 +722,16 @@
                     if (hoursSinceLastMessage >= reminderHours && 
                         (!followUp.lastFollowUpSent || testLastFollowUpHours >= reminderHours)) {
                         reminderToSend = reminder;
-                        reminderIndex = i;
                         break;
                     }
                 }
                 
                 if (reminderToSend) {
-                    console.log(`📢 [إرسال متابعة] للعميل ${followUp.phone} - التذكير رقم ${reminderIndex + 1}`);
                     const sent = await sendAutoMessage(followUp.phone, reminderToSend.message);
                     
                     if (sent) {
                         followUp.followUpCount++;
                         followUp.lastFollowUpSent = now.toISOString();
-                        followUp.lastReminderIndex = reminderIndex;
                         followUp.updatedAt = now.toISOString();
                         
                         conversations.unshift({
@@ -655,14 +746,12 @@
                         });
                         
                         sentCount++;
-                        console.log(`✅ تم إرسال متابعة رقم ${followUp.followUpCount} للعميل ${followUp.phone}`);
                     }
                 }
             }
             
             if (sentCount > 0) {
                 saveData();
-                console.log(`📊 تم إرسال ${sentCount} رسالة متابعة في هذا الفحص`);
             }
         }
         
@@ -672,23 +761,69 @@
             if (followUpInterval) clearInterval(followUpInterval);
             const intervalMinutes = followUpSettings.checkInterval;
             followUpInterval = setInterval(() => {
-                console.log(`🔄 جاري فحص العملاء للمتابعة...`);
                 checkAndSendFollowUps();
             }, intervalMinutes * 60 * 1000);
-            console.log(`✅ تم تفعيل نظام المتابعة الذكية (فحص كل ${intervalMinutes} دقيقة)`);
         }
         
         function stopFollowUpSystem() {
             if (followUpInterval) {
                 clearInterval(followUpInterval);
                 followUpInterval = null;
-                console.log(`⏸️ تم إيقاف نظام المتابعة الذكية`);
             }
         }
         
         // ==================== PROCESS INCOMING ====================
         async function processIncomingMessage(phone, message, instanceId = null, isTest = false) {
             console.log(`📩 رسالة واردة من ${phone}: ${message}`);
+            
+            const isHumanAgentRequest = containsHumanAgentKeywords(message);
+            
+            if (isHumanAgentRequest && humanAgentSettings.enabled) {
+                console.log(`👤 [خدمة العملاء] العميل ${phone} طلب التحدث مع موظف!`);
+                
+                addCustomerToHumanAgent(phone, message);
+                await sendAutoMessage(phone, humanAgentSettings.autoReplyMessage, instanceId);
+                
+                conversations.unshift({
+                    phone: phone,
+                    message: message,
+                    direction: 'incoming',
+                    timestamp: new Date().toISOString(),
+                    instanceId: instanceId,
+                    isHumanAgentRequest: true
+                });
+                
+                conversations.unshift({
+                    phone: phone,
+                    message: humanAgentSettings.autoReplyMessage,
+                    direction: 'outgoing',
+                    timestamp: new Date().toISOString(),
+                    isAuto: true,
+                    isHumanAgentResponse: true
+                });
+                
+                saveData();
+                
+                return { replied: true, message: humanAgentSettings.autoReplyMessage, isHumanAgent: true };
+            }
+            
+            if (isCustomerInHumanAgentMode(phone)) {
+                console.log(`👤 [خدمة العملاء] العميل ${phone} في وضع الانتظار للموظف البشري. لن يتم إرسال رد تلقائي.`);
+                
+                conversations.unshift({
+                    phone: phone,
+                    message: message,
+                    direction: 'incoming',
+                    timestamp: new Date().toISOString(),
+                    instanceId: instanceId,
+                    isHumanAgentWaiting: true
+                });
+                saveData();
+                
+                showNotification(`💬 رسالة من عميل (خدمة عملاء)`, `${phone}: ${message.substring(0, 100)}`);
+                
+                return { replied: false, isHumanAgentWaiting: true, message: null };
+            }
             
             const purchaseKeywords = ['تم الطلب', 'خلصنا', 'انتهى', 'تم الشراء', 'اشتريت', 'دفعت', 'حولت', 'اكد الطلب', 'تأكيد'];
             const lowerMsg = message.toLowerCase();
@@ -754,6 +889,184 @@
             return { replied: true, message: replyMessage };
         }
         
+        // ==================== HUMAN AGENT UI ====================
+        function showHumanAgentPanel() {
+            const waitingCustomers = humanAgentCustomers;
+            
+            let customersHtml = '';
+            waitingCustomers.forEach(phone => {
+                const customer = customers.find(c => c.phone === phone);
+                const customerName = customer ? customer.name : phone;
+                const customerConvos = conversations.filter(c => c.phone === phone).slice(-5);
+                const safePhoneId = phone.replace(/[^0-9]/g, '');
+                
+                customersHtml += `
+                    <div class="card mb-3 border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <strong><i class="fas fa-headset"></i> ${escapeHtml(customerName)}</strong>
+                            <span class="badge bg-danger ms-2">في انتظار الرد</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <strong>آخر المحادثات:</strong>
+                                <div class="bg-light p-2 rounded" style="max-height: 150px; overflow-y: auto;">
+                                    ${customerConvos.map(conv => `
+                                        <div class="small mb-1">
+                                            <span class="text-${conv.direction === 'incoming' ? 'danger' : 'success'}">
+                                                ${conv.direction === 'incoming' ? '👤 عميل:' : '📤 رد:'}
+                                            </span>
+                                            ${escapeHtml(conv.message.substring(0, 100))}
+                                        </div>
+                                    `).join('') || 'لا توجد محادثات'}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <input type="text" class="form-control form-control-sm" id="replyMsg_${safePhoneId}" 
+                                           placeholder="اكتب ردك هنا...">
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-sm btn-primary w-100" onclick="replyToHumanAgentCustomer('${phone}')">
+                                        <i class="fas fa-reply"></i> رد على العميل
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-secondary" onclick="removeCustomerFromHumanAgent('${phone}')">
+                                    <i class="fas fa-check-circle"></i> إنهاء المحادثة وتفعيل البوت
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('content').innerHTML = `
+                <h4><i class="fas fa-headset"></i> خدمة العملاء - طلبات التحدث مع موظف</h4>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    عندما يكتب العميل كلمات مثل "خدمة العملاء" أو "دعم" أو "تكلم مع موظف"، 
+                    يتم تحويله إلى هذه القائمة وتتوقف الردود التلقائية.
+                </div>
+                
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <strong><i class="fas fa-cog"></i> إعدادات خدمة العملاء</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="humanAgentEnabled" 
+                                   ${humanAgentSettings.enabled ? 'checked' : ''}>
+                            <label class="form-check-label" for="humanAgentEnabled">
+                                تفعيل تحويل العملاء لخدمة العملاء البشرية
+                            </label>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">كلمات تحفيز التحويل (مفصولة بفواصل)</label>
+                            <textarea class="form-control" id="triggerKeywords" rows="2">${humanAgentSettings.triggerKeywords.join(', ')}</textarea>
+                            <small class="text-muted">إذا كتب العميل أي من هذه الكلمات، يتم تحويله للموظف البشري</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">رسالة الرد التلقائي عند التحويل</label>
+                            <textarea class="form-control" id="autoReplyMessage" rows="2">${escapeHtml(humanAgentSettings.autoReplyMessage)}</textarea>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="notifyAdmin" 
+                                   ${humanAgentSettings.notifyAdmin ? 'checked' : ''}>
+                            <label class="form-check-label" for="notifyAdmin">
+                                تفعيل الإشعارات (عند طلب العميل خدمة العملاء)
+                            </label>
+                        </div>
+                        
+                        <button class="btn btn-primary" onclick="saveHumanAgentUISettings()">
+                            <i class="fas fa-save"></i> حفظ الإعدادات
+                        </button>
+                    </div>
+                </div>
+                
+                <h5><i class="fas fa-users"></i> العملاء المنتظرون رد الموظف (${waitingCustomers.length})</h5>
+                ${customersHtml || '<div class="alert alert-success">لا يوجد عملاء في قائمة الانتظار</div>'}
+            `;
+        }
+        
+        function saveHumanAgentUISettings() {
+            const enabled = document.getElementById('humanAgentEnabled').checked;
+            const triggerKeywords = document.getElementById('triggerKeywords').value.split(',').map(k => k.trim());
+            const autoReplyMessage = document.getElementById('autoReplyMessage').value;
+            const notifyAdmin = document.getElementById('notifyAdmin').checked;
+            
+            humanAgentSettings.enabled = enabled;
+            humanAgentSettings.triggerKeywords = triggerKeywords;
+            humanAgentSettings.autoReplyMessage = autoReplyMessage;
+            humanAgentSettings.notifyAdmin = notifyAdmin;
+            
+            saveHumanAgentSettings();
+            alert('✅ تم حفظ إعدادات خدمة العملاء');
+            showHumanAgentPanel();
+        }
+        
+        async function replyToHumanAgentCustomer(phone) {
+            const safePhoneId = phone.replace(/[^0-9]/g, '');
+            const messageInput = document.getElementById(`replyMsg_${safePhoneId}`);
+            const message = messageInput?.value;
+            
+            if (!message) {
+                alert('الرجاء كتابة رسالة للرد على العميل');
+                return;
+            }
+            
+            const sent = await sendAutoMessage(phone, message);
+            
+            if (sent) {
+                conversations.unshift({
+                    phone: phone,
+                    message: `👨‍💼 [رد موظف]: ${message}`,
+                    direction: 'outgoing',
+                    timestamp: new Date().toISOString(),
+                    isAuto: false,
+                    isHumanAgentReply: true
+                });
+                saveData();
+                
+                messageInput.value = '';
+                alert('✅ تم إرسال الرد للعميل');
+                
+                if (confirm('هل تريد إنهاء محادثة خدمة العملاء وتفعيل البوت مرة أخرى؟')) {
+                    removeCustomerFromHumanAgent(phone);
+                    showHumanAgentPanel();
+                }
+            } else {
+                alert('❌ فشل إرسال الرسالة');
+            }
+        }
+        
+        function removeCustomerFromHumanAgent(phone) {
+            if (confirm(`هل تريد إنهاء محادثة خدمة العملاء للعميل ${phone} وتفعيل الردود التلقائية مرة أخرى؟`)) {
+                const index = humanAgentCustomers.indexOf(phone);
+                if (index !== -1) {
+                    humanAgentCustomers.splice(index, 1);
+                    saveHumanAgentSettings();
+                    
+                    conversations.unshift({
+                        phone: phone,
+                        message: `✅ [تنبيه] تم إنهاء وضع خدمة العملاء للعميل ${phone}. تم تفعيل الردود التلقائية مرة أخرى.`,
+                        direction: 'outgoing',
+                        timestamp: new Date().toISOString(),
+                        isAuto: true,
+                        isSystem: true
+                    });
+                    saveData();
+                    
+                    alert('✅ تم إنهاء المحادثة وتفعيل البوت');
+                    showHumanAgentPanel();
+                }
+            }
+        }
+        
         // ==================== FOLLOW-UP UI ====================
         function showFollowUpSettings() {
             let remindersHtml = '';
@@ -788,6 +1101,7 @@
             const completedCount = followUps.filter(f => f.status === 'completed').length;
             const totalFollowUps = followUps.reduce((sum, f) => sum + f.followUpCount, 0);
             const customersWithOrders = orders.length;
+            const humanAgentCount = humanAgentCustomers.length;
             
             let testModeHtml = '';
             if (testMode.enabled) {
@@ -936,35 +1250,23 @@
                 <div class="table-responsive">
                     <table class="table table-sm table-hover">
                         <thead>
-                            <tr>
-                                <th>العميل</th>
-                                <th>آخر رسالة</th>
-                                <th>محاولات</th>
-                                <th>الحالة</th>
-                                <th>سبب الإكمال</th>
-                                <th>الإجراءات</th>
-                            </thead>
+                            <tr><th>العميل</th><th>آخر رسالة</th><th>محاولات</th><th>الحالة</th><th>سبب الإكمال</th><th>الإجراءات</th> </thead>
                         <tbody>
                             ${followUps.map((f, idx) => `
                                 <tr class="${f.status === 'completed' ? 'table-secondary' : ''} ${f.name && f.name.includes('اختبار') ? 'table-info' : ''}">
-                                    <td>
-                                        <strong>${escapeHtml(f.name || f.phone)}</strong>
+                                    <td><strong>${escapeHtml(f.name || f.phone)}</strong>
                                         ${f.completedReason === 'purchase_completed' ? '<span class="badge bg-success ms-1">✅ تم الشراء</span>' : ''}
                                         ${f.completedReason === 'has_order' ? '<span class="badge bg-info ms-1">📦 لديه طلب</span>' : ''}
                                         ${f.name && f.name.includes('اختبار') ? '<span class="badge badge-test ms-1">🧪 اختبار</span>' : ''}
                                     </td>
                                     <td><small>${new Date(f.lastMessageTime).toLocaleString('ar')}</small></td>
                                     <td>${f.followUpCount > 0 ? `${f.followUpCount}/${followUpSettings.maxFollowUps}` : '-'}</td>
-                                    <td>
-                                        ${f.status === 'waiting' ? '<span class="badge bg-warning">⏳ في الانتظار</span>' : 
-                                          f.status === 'replied' ? '<span class="badge bg-success">💬 رد</span>' : 
-                                          '<span class="badge bg-secondary">✅ مكتمل</span>'}
-                                    </td>
-                                    <td>
-                                        ${f.completedReason === 'purchase_completed' ? 'تم الشراء' : 
-                                          f.completedReason === 'has_order' ? 'لديه طلب' : 
-                                          f.completedReason === 'max_attempts' ? 'انتهت المحاولات' : '-'}
-                                    </td>
+                                    <td>${f.status === 'waiting' ? '<span class="badge bg-warning">⏳ في الانتظار</span>' : 
+                                        f.status === 'replied' ? '<span class="badge bg-success">💬 رد</span>' : 
+                                        '<span class="badge bg-secondary">✅ مكتمل</span>'}</td>
+                                    <td>${f.completedReason === 'purchase_completed' ? 'تم الشراء' : 
+                                        f.completedReason === 'has_order' ? 'لديه طلب' : 
+                                        f.completedReason === 'max_attempts' ? 'انتهت المحاولات' : '-'}</td>
                                     <td>
                                         ${f.status !== 'completed' ? `
                                             <button class="btn btn-sm btn-success" onclick="createNewOrder('${f.name}', '${f.phone}', 'منتج')" title="تسجيل شراء">
@@ -1038,6 +1340,21 @@
             
             alert('✅ تم حفظ إعدادات المتابعة الذكية');
             showFollowUpSettings();
+        }
+        
+        function toggleTestMode(enabled) {
+            updateTestMode(enabled, testMode.speedMultiplier);
+            showFollowUpSettings();
+        }
+        
+        function setTestSpeed() {
+            const multiplier = parseInt(document.getElementById('testSpeedMultiplier').value);
+            if (multiplier >= 60) {
+                updateTestMode(testMode.enabled, multiplier);
+                showFollowUpSettings();
+            } else {
+                alert('السرعة يجب أن تكون 60 على الأقل');
+            }
         }
         
         // ==================== OTHER UI FUNCTIONS ====================
@@ -1191,10 +1508,16 @@
             [...conversations].reverse().forEach(msg => {
                 const isIncoming = msg.direction === 'incoming';
                 const isTest = msg.isTest;
+                const isHumanAgent = msg.isHumanAgentRequest || msg.isHumanAgentResponse || msg.isHumanAgentWaiting;
                 html += `<div class="text-${isIncoming ? 'right' : 'left'} mb-2">
-                    <div class="message-bubble ${isIncoming ? 'message-incoming' : 'message-outgoing'} ${msg.isFollowUp ? 'followup-message' : ''} ${isTest ? 'test-message' : ''}">
-                        <small>${isIncoming ? '👤 عميل' : (msg.isFollowUp ? '⏰ متابعة' : (msg.isAuto ? '🤖 بوت' : '📤 أنت'))}
-                        ${isTest ? ' 🧪 اختبار' : ''}</small><br>
+                    <div class="message-bubble ${isIncoming ? 'message-incoming' : 'message-outgoing'} 
+                        ${msg.isFollowUp ? 'followup-message' : ''} 
+                        ${isTest ? 'test-message' : ''}
+                        ${isHumanAgent ? 'human-agent-message' : ''}">
+                        <small>${isIncoming ? '👤 عميل' : (msg.isFollowUp ? '⏰ متابعة' : (msg.isHumanAgentResponse ? '👨‍💼 رد موظف' : (msg.isAuto ? '🤖 بوت' : '📤 أنت')))}
+                        ${isTest ? ' 🧪 اختبار' : ''}
+                        ${msg.isHumanAgentRequest ? ' 👤 طلب موظف' : ''}
+                        ${msg.isHumanAgentWaiting ? ' ⏳ في انتظار الموظف' : ''}</small><br>
                         ${escapeHtml(msg.message)}<br>
                         <small>${new Date(msg.timestamp).toLocaleString()}</small>
                     </div>
@@ -1246,6 +1569,7 @@
         function showDashboard() {
             const waitingCount = followUps.filter(f => f.status === 'waiting').length;
             const completedCount = followUps.filter(f => f.status === 'completed').length;
+            const humanAgentCount = humanAgentCustomers.length;
             document.getElementById('content').innerHTML = `
                 <h4>لوحة التحكم</h4>
                 <div class="row">
@@ -1254,6 +1578,9 @@
                     <div class="col-md-3"><div class="stat-card"><i class="fas fa-clock fa-2x text-warning"></i><h3>${waitingCount}</h3><p>متابعة</p></div></div>
                     <div class="col-md-3"><div class="stat-card"><i class="fas fa-check-circle fa-2x text-success"></i><h3>${completedCount}</h3><p>مكتملين</p></div></div>
                 </div>
+                <div class="row mt-3">
+                    <div class="col-md-12"><div class="stat-card bg-danger bg-opacity-10"><i class="fas fa-headset fa-2x text-danger"></i><h3>${humanAgentCount}</h3><p>عملاء في خدمة العملاء</p></div></div>
+                </div>
                 ${testMode.enabled ? '<div class="alert alert-warning mt-3"><i class="fas fa-flask"></i> <strong>وضع الاختبار مفعل!</strong> أوقات المتابعة مضغوطة للاختبار السريع.</div>' : ''}
                 <div class="alert alert-success mt-3"><strong>🎯 كيف يعرف النظام أن العميل اشترى؟</strong><br>
                 - عند إنشاء طلب جديد من لوحة التحكم → إيقاف المتابعة فوراً<br>
@@ -1261,8 +1588,9 @@
                 - عند إكمال طلب موجود → إيقاف المتابعة<br>
                 - إذا كان العميل لديه أي طلب → لا يتم إضافته للمتابعة</div>
                 <div class="row mt-3">
-                    <div class="col-md-6"><button class="btn btn-warning w-100" onclick="showFollowUpSettings()"><i class="fas fa-clock"></i> إدارة المتابعة الذكية</button></div>
-                    <div class="col-md-6"><button class="btn btn-info w-100" onclick="forceCheckNow()"><i class="fas fa-sync-alt"></i> فحص فوري</button></div>
+                    <div class="col-md-4"><button class="btn btn-warning w-100" onclick="showFollowUpSettings()"><i class="fas fa-clock"></i> إدارة المتابعة</button></div>
+                    <div class="col-md-4"><button class="btn btn-danger w-100" onclick="showHumanAgentPanel()"><i class="fas fa-headset"></i> خدمة العملاء</button></div>
+                    <div class="col-md-4"><button class="btn btn-info w-100" onclick="forceCheckNow()"><i class="fas fa-sync-alt"></i> فحص فوري</button></div>
                 </div>`;
         }
         
@@ -1275,7 +1603,7 @@
         
         startFollowUpSystem();
         showDashboard();
-        console.log('✅ نظام واتساب الذكي جاهز مع دعم رقمين ومتابعة ذكية ووضع اختبار سريع');
+        console.log('✅ نظام واتساب الذكي جاهز مع دعم رقمين، متابعة ذكية، وخدمة عملاء بشرية');
     </script>
 </body>
 </html>
