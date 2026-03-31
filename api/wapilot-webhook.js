@@ -401,3 +401,28 @@ module.exports = async (req, res) => {
             error: 'Invalid phone number',
             phone: cleanPhone,
             instance: targetInstance.name
+        });
+    }
+    
+    const autoReply = findAutoReply(message);
+    const replyMessage = autoReply || companyData.welcomeMessage;
+    
+    if (autoReply) {
+        console.log(`🤖 Auto-reply found, sending...`);
+    } else {
+        console.log(`⚠️ No auto-reply found, sending welcome message`);
+    }
+    
+    // 🔥 إرسال الرد من نفس الـ instance التي استلمت الرسالة
+    const result = await sendWhatsAppMessage(targetInstance, cleanPhone, replyMessage);
+    
+    return res.status(200).json({ 
+        success: result.success,
+        replied: true,
+        reply: replyMessage.substring(0, 100) + (replyMessage.length > 100 ? '...' : ''),
+        from_instance: targetInstance.name,
+        original_instance: incomingInstanceId || 'unknown',
+        phone: cleanPhone,
+        result: result
+    });
+};
