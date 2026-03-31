@@ -52,12 +52,14 @@ const instances = [
         id: "instance3532",
         token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
         name: "الرقم الأول - النمر للشحن",
+        phoneNumber: "201234567890", // ⚠️ لازم تحط الرقم الصحيح هنا
         active: true
     },
     {
         id: "instance3537",
         token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
         name: "الرقم الثاني - النمر للشحن",
+        phoneNumber: "201234567891", // ⚠️ لازم تحط الرقم الصحيح هنا
         active: true
     }
 ];
@@ -388,6 +390,43 @@ function findAutoReply(message) {
     return null;
 }
 
+// دالة محسنة لاستخراج instance_id من جميع المواقع الممكنة
+function extractInstanceId(data) {
+    // محاولة استخراج instance_id من جميع المواقع الممكنة
+    return (
+        data.instance_id ||
+        data.instanceId ||
+        data.webhook_id ||
+        data.webhookId ||
+        data.payload?.instance_id ||
+        data.payload?.instanceId ||
+        data.payload?.webhook_id ||
+        data.payload?.webhookId ||
+        data.data?.instance_id ||
+        data.data?.instanceId ||
+        null
+    );
+}
+
+// دالة محسنة لاستخراج رقم الهاتف المستلم (الرقم الذي وصلت له الرسالة)
+function extractReceivedPhone(data) {
+    // محاولة استخراج الرقم الذي استلم الرسالة
+    const phone = (
+        data.payload?.to ||
+        data.to ||
+        data.payload?.recipient ||
+        data.recipient ||
+        data.payload?.destination ||
+        data.destination ||
+        null
+    );
+    
+    if (phone) {
+        return phone.toString().replace('@c.us', '').replace('+', '');
+    }
+    return null;
+}
+
 async function sendWhatsAppMessage(instance, chat_id, message) {
     try {
         console.log(`📤 [${instance.name}] Sending to: ${chat_id}`);
@@ -420,8 +459,13 @@ module.exports = async (req, res) => {
         return res.status(200).json({ 
             status: 'active', 
             company: companyData.name,
-            message: 'النمر للشحن - Webhook is running (Dual Instance)',
-            instances: instances.map(i => ({ id: i.id, name: i.name, active: i.active })),
+            message: 'النمر للشحن - Webhook is running (Dual Instance - Fixed)',
+            instances: instances.map(i => ({ 
+                id: i.id, 
+                name: i.name, 
+                phoneNumber: i.phoneNumber,
+                active: i.active 
+            })),
             rulesCount: autoRules.filter(r => r.active).length,
             timestamp: new Date().toISOString()
         });
@@ -433,18 +477,16 @@ module.exports = async (req, res) => {
     const data = req.body;
     let rawChatId = null;
     let message = null;
-    let incomingInstanceId = null;
     
+    // استخراج البيانات من webhook
     if (data.payload) {
         rawChatId = data.payload.from;
         message = data.payload.body;
-        incomingInstanceId = data.instance_id || data.webhook_id;
     }
     
     if (!rawChatId && data.from) {
         rawChatId = data.from;
         message = data.body || data.text;
-        incomingInstanceId = data.instance_id;
     }
     
     if (!rawChatId || !message) {
@@ -456,29 +498,78 @@ module.exports = async (req, res) => {
         });
     }
     
+    // ========== الجزء المهم: استخراج الـ instance ID ==========
+    const incomingInstanceId = extractInstanceId(data);
+    const receivedPhone = extractReceivedPhone(data);
+    
     console.log(`📱 Original chat_id: ${rawChatId}`);
     console.log(`💬 Message: ${message}`);
-    console.log(`🔌 Incoming instance ID: ${incomingInstanceId || 'not provided'}`);
+    console.log(`🔌 Extracted Instance ID: ${incomingInstanceId || 'NOT FOUND!'}`);
+    console.log(`📞 Received Phone (who got the message): ${receivedPhone || 'NOT FOUND!'}`);
+    console.log(`📋 Available instances: ${instances.map(i => `${i.id} (${i.name})`).join(', ')}`);
     
     let targetInstance = null;
     
+    // استراتيجية 1: البحث باستخدام instance_id
     if (incomingInstanceId) {
-        targetInstance = instances.find(inst => inst.id === incomingInstanceId);
+        targetInstance = instances.find(inst => inst.id === incomingInstanceId && inst.active);
         if (targetInstance) {
-            console.log(`✅ Using same instance that received the message: ${targetInstance.name}`);
+            console.log(`✅ Found instance by ID: ${targetInstance.name}`);
         } else {
-            console.log(`⚠️ Instance ID ${incomingInstanceId} not found in config`);
+            console.log(`⚠️ Instance with ID ${incomingInstanceId} not found or inactive`);
+        }
+    }
+    
+    // استراتيجية 2: البحث باستخدام رقم الهاتف المستلم (إذا وجد)
+    if (!targetInstance && receivedPhone) {
+        let cleanPhone = receivedPhone.replace(/[^0-9]/g, '');
+        if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+        
+        console.log(`🔍 Searching for instance with phone: ${cleanPhone}`);
+        
+        targetInstance = instances.find(inst => {
+            if (!inst.phoneNumber) return false;
+            let instPhone = inst.phoneNumber.toString().replace(/[^0-9]/g, '');
+            if (instPhone.startsWith('0')) instPhone = instPhone.substring(1);
+            return instPhone === cleanPhone;
+        });
+        
+        if (targetInstance && targetInstance.active) {
+            console.log(`✅ Found instance by phone number: ${targetInstance.name}`);
+        } else if (targetInstance && !targetInstance.active) {
+            console.log(`⚠️ Instance found by phone is not active`);
+            targetInstance = null;
+        }
+    }
+    
+    // استراتيجية 3: البحث عن طريق مطابقة الرقم الذي أرسل له (من chat_id)
+    if (!targetInstance && rawChatId) {
+        // في بعض الحالات، chat_id يحتوي على معلومات عن المستلم
+        // يمكن استخدامها لتحديد الـ instance
+        console.log(`⚠️ Could not determine instance by ID or phone, will use active instance`);
+    }
+    
+    // استراتيجية 4: استخدام أول instance نشط (fallback)
+    if (!targetInstance) {
+        targetInstance = instances.find(inst => inst.active);
+        if (targetInstance) {
+            console.log(`⚠️⚠️⚠️ WARNING: Using fallback instance: ${targetInstance.name}`);
+            console.log(`⚠️⚠️⚠️ This may cause replies to come from the wrong number!`);
+            console.log(`⚠️⚠️⚠️ Please check webhook configuration to ensure instance_id is being sent correctly`);
         }
     }
     
     if (!targetInstance) {
-        targetInstance = instances.find(inst => inst.active);
-        console.log(`⚠️ No matching instance found, using fallback: ${targetInstance?.name}`);
-    }
-    
-    if (!targetInstance) {
         console.log('⚠️ No active instance available');
-        return res.status(200).json({ received: true, error: 'No active instance' });
+        return res.status(200).json({ 
+            received: true, 
+            error: 'No active instance',
+            debug: {
+                incomingInstanceId,
+                receivedPhone,
+                availableInstances: instances.map(i => ({ id: i.id, phone: i.phoneNumber, active: i.active }))
+            }
+        });
     }
     
     let chatId = rawChatId;
@@ -487,8 +578,8 @@ module.exports = async (req, res) => {
     }
     
     console.log(`📤 WILL REPLY FROM: ${targetInstance.name} (${targetInstance.id})`);
+    console.log(`📤 Instance phone number: ${targetInstance.phoneNumber || 'Not configured'}`);
     console.log(`📤 Sending to chat_id: ${chatId}`);
-    console.log(`🎯 Original message came from instance: ${incomingInstanceId || 'unknown'}`);
     
     const autoReply = findAutoReply(message);
     
@@ -501,7 +592,10 @@ module.exports = async (req, res) => {
             replied: true,
             reply: autoReply.substring(0, 100) + (autoReply.length > 100 ? '...' : ''),
             from_instance: targetInstance.name,
-            original_instance: incomingInstanceId || 'unknown',
+            from_instance_id: targetInstance.id,
+            from_phone: targetInstance.phoneNumber,
+            original_instance_id: incomingInstanceId,
+            original_received_phone: receivedPhone,
             chat_id: chatId,
             result: result
         });
@@ -513,7 +607,7 @@ module.exports = async (req, res) => {
             reason: 'No matching rule found',
             message: message,
             from_instance: targetInstance.name,
-            original_instance: incomingInstanceId || 'unknown'
+            original_instance_id: incomingInstanceId
         });
     }
 };
