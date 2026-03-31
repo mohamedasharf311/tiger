@@ -49,10 +49,10 @@ const companyData = {
 // ==================== INSTANCE CONFIGURATION ====================
 // هذا الـ webhook مخصص فقط للرقم الأول
 const INSTANCE = {
-    id: "instance3532",
+    id: "instance3554",
     token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
     name: "الرقم الأول - النمر للشحن",
-    phoneNumber: "201234567890", // ضع الرقم الصحيح هنا
+    phoneNumber: "201553999935", // ضع الرقم الصحيح هنا
     active: true
 };
 
