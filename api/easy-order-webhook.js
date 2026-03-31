@@ -238,13 +238,6 @@ function findAutoReply(message) {
     return null;
 }
 
-function getInstanceFromWebhook(data) {
-    if (data.instance_id) {
-        return instances.find(inst => inst.id === data.instance_id);
-    }
-    return instances.find(inst => inst.active);
-}
-
 async function sendWhatsAppMessage(instance, chat_id, message) {
     try {
         console.log(`📤 [${instance.name}] Sending to: ${chat_id}`);
@@ -285,16 +278,26 @@ module.exports = async (req, res) => {
     }
     
     console.log('📦 Easy Order Webhook received:', new Date().toISOString());
+    console.log('🔍 Full webhook data:', JSON.stringify(req.body, null, 2));
     
     const data = req.body;
     let rawChatId = null;
     let message = null;
-    let webhookInstanceId = null;
+    let incomingInstanceId = null;
     
+    // استخراج البيانات حسب التنسيق
     if (data.payload) {
         rawChatId = data.payload.from;
         message = data.payload.body;
-        webhookInstanceId = data.instance_id || data.webhook_id;
+        // 🔥 مهم: حفظ معرف الـ instance التي استلمت الرسالة
+        incomingInstanceId = data.instance_id || data.webhook_id;
+    }
+    
+    // محاولة تنسيقات أخرى
+    if (!rawChatId && data.from) {
+        rawChatId = data.from;
+        message = data.body || data.text;
+        incomingInstanceId = data.instance_id;
     }
     
     if (!rawChatId || !message) {
@@ -308,16 +311,25 @@ module.exports = async (req, res) => {
     
     console.log(`📱 Original chat_id: ${rawChatId}`);
     console.log(`💬 Message: ${message}`);
-    console.log(`🔌 Webhook Instance: ${webhookInstanceId || 'auto-detect'}`);
+    console.log(`🔌 Incoming instance ID: ${incomingInstanceId || 'not provided'}`);
     
+    // 🔥 الخطوة الأساسية: تحديد الـ instance التي سترد (يجب أن تكون نفس المستقبلة)
     let targetInstance = null;
     
-    if (webhookInstanceId) {
-        targetInstance = instances.find(inst => inst.id === webhookInstanceId);
+    // أولاً: استخدام نفس الـ instance التي استلمت الرسالة
+    if (incomingInstanceId) {
+        targetInstance = instances.find(inst => inst.id === incomingInstanceId);
+        if (targetInstance) {
+            console.log(`✅ Using same instance that received the message: ${targetInstance.name}`);
+        } else {
+            console.log(`⚠️ Instance ID ${incomingInstanceId} not found in config`);
+        }
     }
     
+    // ثانياً: إذا لم نجد، نستخدم أول instance نشط (حل احتياطي)
     if (!targetInstance) {
         targetInstance = instances.find(inst => inst.active);
+        console.log(`⚠️ No matching instance found, using fallback: ${targetInstance?.name}`);
     }
     
     if (!targetInstance) {
@@ -325,34 +337,35 @@ module.exports = async (req, res) => {
         return res.status(200).json({ received: true, error: 'No active instance' });
     }
     
-    const chatId = rawChatId.includes('@') ? rawChatId : `${rawChatId}@c.us`;
+    // تنظيف رقم الهاتف
+    let chatId = rawChatId;
+    if (!chatId.includes('@')) {
+        chatId = `${chatId}@c.us`;
+    }
     
-    console.log(`📤 Using instance: ${targetInstance.name} (${targetInstance.id})`);
+    console.log(`📤 WILL REPLY FROM: ${targetInstance.name} (${targetInstance.id})`);
     console.log(`📤 Sending to chat_id: ${chatId}`);
+    console.log(`🎯 Original message came from instance: ${incomingInstanceId || 'unknown'}`);
     
     const autoReply = findAutoReply(message);
+    const replyMessage = autoReply || companyData.welcomeMessage;
     
     if (autoReply) {
-        console.log(`🤖 Auto-reply: ${autoReply.substring(0, 100)}...`);
-        const result = await sendWhatsAppMessage(targetInstance, chatId, autoReply);
-        return res.status(200).json({ 
-            success: true, 
-            replied: true, 
-            reply: autoReply.substring(0, 100) + (autoReply.length > 100 ? '...' : ''),
-            chat_id: chatId,
-            instance: targetInstance.name,
-            result: result.success
-        });
+        console.log(`🤖 Auto-reply found, sending...`);
     } else {
         console.log(`⚠️ No auto-reply found, sending welcome message`);
-        const fallback = companyData.welcomeMessage;
-        await sendWhatsAppMessage(targetInstance, chatId, fallback);
-        return res.status(200).json({ 
-            success: true, 
-            replied: true, 
-            reply: 'Welcome menu sent',
-            chat_id: chatId,
-            instance: targetInstance.name
-        });
     }
+    
+    // 🔥 إرسال الرد من نفس الـ instance التي استلمت الرسالة
+    const result = await sendWhatsAppMessage(targetInstance, chatId, replyMessage);
+    
+    return res.status(200).json({ 
+        success: result.success,
+        replied: true,
+        reply: replyMessage.substring(0, 100) + (replyMessage.length > 100 ? '...' : ''),
+        from_instance: targetInstance.name,
+        original_instance: incomingInstanceId || 'unknown',
+        chat_id: chatId,
+        result: result
+    });
 };
