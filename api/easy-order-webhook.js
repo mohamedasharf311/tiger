@@ -52,14 +52,14 @@ const instances = [
         id: "instance3532",
         token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
         name: "الرقم الأول - النمر للشحن",
-        phoneNumber: "201234567890", // ⚠️ لازم تحط الرقم الصحيح هنا
+        phoneNumber: "201028467631", // ⚠️ لازم تحط الرقم الصحيح هنا
         active: true
     },
     {
         id: "instance3537",
         token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
         name: "الرقم الثاني - النمر للشحن",
-        phoneNumber: "201234567891", // ⚠️ لازم تحط الرقم الصحيح هنا
+        phoneNumber: "201119383101", // ⚠️ لازم تحط الرقم الصحيح هنا
         active: true
     }
 ];
