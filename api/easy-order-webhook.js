@@ -46,6 +46,22 @@ const companyData = {
     ]
 };
 
+// ==================== INSTANCES CONFIGURATION ====================
+const instances = [
+    {
+        id: "instance3532",
+        token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
+        name: "الرقم الأول - النمر للشحن",
+        active: true
+    },
+    {
+        id: "instance3537",
+        token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
+        name: "الرقم الثاني - النمر للشحن",
+        active: true
+    }
+];
+
 // ==================== AUTO REPLY RULES ====================
 let autoRules = [
     // القائمة الرئيسية
@@ -65,7 +81,8 @@ let autoRules = [
     {
         id: 1,
         keywords: [
-            '1', 'داخل الاسكندرية', 'داخل الإسكندرية', 'اسكندرية', 'الإسكندرية',
+            '1', '١',
+            'داخل الاسكندرية', 'داخل الإسكندرية', 'اسكندرية', 'الإسكندرية',
             'اسعار اسكندرية', 'اسعار داخل', 'سعر', 'الثمن', 'كم سعر', 'بكام', 'price',
             'alexandria', 'inside alexandria', 'cost alexandria', 'shipping inside',
             'local shipping', 'cost', 'how much'
@@ -95,7 +112,8 @@ ${companyData.shippingPrices.alexandria["90 جنيه"].join(' - ')}
     {
         id: 2,
         keywords: [
-            '2', 'خارج الاسكندرية', 'خارج الإسكندرية', 'خارج', 'اسعار خارج',
+            '2', '٢',
+            'خارج الاسكندرية', 'خارج الإسكندرية', 'خارج', 'اسعار خارج',
             'القاهرة', 'بورسعيد', 'الإسماعيلية', 'الفيوم', 'قنا', 'سوهاج',
             'outside alexandria', 'cairo', 'portsaid', 'ismailia', 'fayoum',
             'qena', 'sohag', 'outside', 'other cities'
@@ -116,7 +134,8 @@ ${companyData.shippingPrices.outsideAlexandria["120 جنيه"].join(' - ')}
     {
         id: 3,
         keywords: [
-            '3', 'مدة التوصيل', 'التوصيل', 'المدة', 'وقت', 'كم يوم', 'مدة الشحن',
+            '3', '٣',
+            'مدة التوصيل', 'التوصيل', 'المدة', 'وقت', 'كم يوم', 'مدة الشحن',
             'المدة كام', 'توصيل', 'الشحن', 'delivery time', 'delivery duration',
             'how long', 'shipping time', 'when', 'time', 'duration', 'delivery'
         ],
@@ -134,7 +153,8 @@ ${companyData.shippingPrices.outsideAlexandria["120 جنيه"].join(' - ')}
     {
         id: 4,
         keywords: [
-            '4', 'طرق الدفع', 'الدفع', 'كيف ادفع', 'ادفع ازاي', 'طرق السداد', 'السداد',
+            '4', '٤',
+            'طرق الدفع', 'الدفع', 'كيف ادفع', 'ادفع ازاي', 'طرق السداد', 'السداد',
             'payment', 'payment methods', 'how to pay', 'pay', 'cash', 'bank transfer',
             'instapay', 'vodafone cash', 'wallet'
         ],
@@ -153,7 +173,8 @@ ${companyData.shippingPrices.outsideAlexandria["120 جنيه"].join(' - ')}
     {
         id: 5,
         keywords: [
-            '5', 'شروط', 'شروط الشحن', 'سياسة', 'قوانين', 'ممنوع', 'مسموح', 'ضمان',
+            '5', '٥',
+            'شروط', 'شروط الشحن', 'سياسة', 'قوانين', 'ممنوع', 'مسموح', 'ضمان',
             'terms', 'conditions', 'policy', 'rules', 'shipping terms', 'warranty',
             'fragile', 'insurance'
         ],
@@ -169,7 +190,8 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
     {
         id: 6,
         keywords: [
-            '6', 'خدمة العملاء', 'خدمه العملاء', 'دعم', 'تكلم مع موظف', 'موظف',
+            '6', '٦',
+            'خدمة العملاء', 'خدمه العملاء', 'دعم', 'تكلم مع موظف', 'موظف',
             'تحكم', 'شكوى', 'مشكلة', 'اتصل بمسؤول', 'مسؤول', 'customer service',
             'support', 'agent', 'human', 'complaint', 'problem', 'talk to someone',
             'representative', 'issue'
@@ -304,38 +326,70 @@ We offer special rates for companies and institutions.
     }
 ];
 
-// ==================== INSTANCES CONFIGURATION ====================
-const instances = [
-    {
-        id: "instance3532",
-        token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
-        name: "الرقم الأول - النمر للشحن",
-        active: true
-    },
-    {
-        id: "instance3537",
-        token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
-        name: "الرقم الثاني - النمر للشحن",
-        active: true
-    }
-];
-
 // ==================== HELPER FUNCTIONS ====================
-async function sendWhatsAppMessage(instance, phone, message) {
-    try {
-        let cleanPhone = phone.toString();
-        cleanPhone = cleanPhone.replace('@c.us', '');
-        cleanPhone = cleanPhone.replace('@lid', '');
-        cleanPhone = cleanPhone.replace('+', '');
-        cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
-        if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+function findAutoReply(message) {
+    if (!message) return null;
+    const lowerMsg = message.toLowerCase().trim();
+    
+    console.log(`🔍 Searching for reply to: "${lowerMsg}"`);
+    
+    // معالجة خاصة للأرقام (1, 2, 3, 4, 5, 6)
+    const numberMap = {
+        '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
+        '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6
+    };
+    
+    // إذا كانت الرسالة رقم فقط (مثل "1" أو "٢")
+    if (numberMap[lowerMsg] !== undefined) {
+        const number = numberMap[lowerMsg];
+        console.log(`🔢 Number detected: ${number}`);
         
-        if (cleanPhone.length < 10 || cleanPhone.length > 15) {
-            console.log(`⚠️ Invalid phone number: ${cleanPhone}`);
-            return { success: false, error: 'Invalid phone number' };
+        // البحث عن القاعدة المطابقة للرقم
+        for (let rule of autoRules) {
+            if (!rule.active) continue;
+            for (let keyword of rule.keywords) {
+                // مطابقة الرقم مع الكلمة المفتاحية
+                if (keyword === number.toString() || 
+                    keyword === '1' && number === 1 ||
+                    keyword === '2' && number === 2 ||
+                    keyword === '3' && number === 3 ||
+                    keyword === '4' && number === 4 ||
+                    keyword === '5' && number === 5 ||
+                    keyword === '6' && number === 6) {
+                    console.log(`✅ Number match found: rule ${rule.id} for number ${number}`);
+                    return rule.reply;
+                }
+            }
         }
+    }
+    
+    // البحث العادي في القواعد
+    for (let rule of autoRules) {
+        if (!rule.active) continue;
         
-        const chat_id = `${cleanPhone}@c.us`;
+        for (let keyword of rule.keywords) {
+            const keywordLower = keyword.toLowerCase();
+            
+            // مطابقة تامة
+            if (lowerMsg === keywordLower) {
+                console.log(`✅ Exact match: rule ${rule.id} - keyword: "${keyword}"`);
+                return rule.reply;
+            }
+            
+            // مطابقة جزئية
+            if (lowerMsg.includes(keywordLower)) {
+                console.log(`✅ Partial match: rule ${rule.id} - keyword: "${keyword}" in "${lowerMsg}"`);
+                return rule.reply;
+            }
+        }
+    }
+    
+    console.log(`⚠️ No auto-reply found for: "${message}"`);
+    return null;
+}
+
+async function sendWhatsAppMessage(instance, chat_id, message) {
+    try {
         console.log(`📤 [${instance.name}] Sending to: ${chat_id}`);
         
         const response = await axios.post(
@@ -343,30 +397,13 @@ async function sendWhatsAppMessage(instance, phone, message) {
             { chat_id, text: message },
             { headers: { "token": instance.token, "Content-Type": "application/json" } }
         );
-        console.log(`✅ [${instance.name}] Sent successfully to ${cleanPhone}`);
+        
+        console.log(`✅ [${instance.name}] Sent successfully to ${chat_id}`);
         return { success: true, data: response.data };
     } catch (error) {
         console.error(`❌ [${instance.name}] Send failed:`, error.response?.data || error.message);
         return { success: false, error: error.response?.data || error.message };
     }
-}
-
-function findAutoReply(message) {
-    if (!message) return null;
-    const lowerMsg = message.toLowerCase().trim();
-    
-    for (let rule of autoRules) {
-        if (!rule.active) continue;
-        for (let keyword of rule.keywords) {
-            if (lowerMsg.includes(keyword.toLowerCase())) {
-                console.log(`✅ Found rule: ${rule.id} - keyword: ${keyword}`);
-                return rule.reply;
-            }
-        }
-    }
-    
-    console.log(`⚠️ No auto-reply found for: ${message}`);
-    return null;
 }
 
 // ==================== WEBHOOK HANDLER ====================
@@ -383,38 +420,43 @@ module.exports = async (req, res) => {
         return res.status(200).json({ 
             status: 'active', 
             company: companyData.name,
+            message: 'النمر للشحن - Webhook is running (Dual Instance)',
             instances: instances.map(i => ({ id: i.id, name: i.name, active: i.active })),
             rulesCount: autoRules.filter(r => r.active).length,
-            timestamp: new Date().toISOString() 
+            timestamp: new Date().toISOString()
         });
     }
     
-    console.log('📩 Webhook received:', new Date().toISOString());
+    console.log('📦 Easy Order Webhook received:', new Date().toISOString());
     console.log('🔍 Full webhook data:', JSON.stringify(req.body, null, 2));
     
     const data = req.body;
-    let rawPhone = null;
+    let rawChatId = null;
     let message = null;
     let incomingInstanceId = null;
     
-    if (data.event === 'message' && data.payload) {
-        rawPhone = data.payload.from;
+    if (data.payload) {
+        rawChatId = data.payload.from;
         message = data.payload.body;
         incomingInstanceId = data.instance_id || data.webhook_id;
     }
     
-    if (!rawPhone && data.from) {
-        rawPhone = data.from;
+    if (!rawChatId && data.from) {
+        rawChatId = data.from;
         message = data.body || data.text;
         incomingInstanceId = data.instance_id;
     }
     
-    if (!rawPhone || !message) {
-        console.log('⚠️ Missing phone or message');
-        return res.status(200).json({ received: true, error: 'Missing data', raw: data });
+    if (!rawChatId || !message) {
+        console.log('⚠️ Missing chat_id or message');
+        return res.status(200).json({ 
+            received: true, 
+            error: 'Missing data',
+            raw: data 
+        });
     }
     
-    console.log(`📱 Raw phone: ${rawPhone}`);
+    console.log(`📱 Original chat_id: ${rawChatId}`);
     console.log(`💬 Message: ${message}`);
     console.log(`🔌 Incoming instance ID: ${incomingInstanceId || 'not provided'}`);
     
@@ -422,11 +464,8 @@ module.exports = async (req, res) => {
     
     if (incomingInstanceId) {
         targetInstance = instances.find(inst => inst.id === incomingInstanceId);
-        if (targetInstance && targetInstance.active) {
+        if (targetInstance) {
             console.log(`✅ Using same instance that received the message: ${targetInstance.name}`);
-        } else if (targetInstance && !targetInstance.active) {
-            console.log(`⚠️ Instance ${incomingInstanceId} is not active`);
-            targetInstance = null;
         } else {
             console.log(`⚠️ Instance ID ${incomingInstanceId} not found in config`);
         }
@@ -434,7 +473,7 @@ module.exports = async (req, res) => {
     
     if (!targetInstance) {
         targetInstance = instances.find(inst => inst.active);
-        console.log(`⚠️ No matching active instance found, using fallback: ${targetInstance?.name}`);
+        console.log(`⚠️ No matching instance found, using fallback: ${targetInstance?.name}`);
     }
     
     if (!targetInstance) {
@@ -442,38 +481,20 @@ module.exports = async (req, res) => {
         return res.status(200).json({ received: true, error: 'No active instance' });
     }
     
-    if (rawPhone.includes('@lid')) {
-        console.log(`⚠️ Cannot reply to LID: ${rawPhone}`);
-        return res.status(200).json({
-            received: true,
-            note: 'Cannot reply to LID, need real phone number',
-            rawPhone: rawPhone,
-            instance: targetInstance.name
-        });
+    let chatId = rawChatId;
+    if (!chatId.includes('@')) {
+        chatId = `${chatId}@c.us`;
     }
     
-    let cleanPhone = rawPhone.replace('@c.us', '').replace('+', '').replace(/[^0-9]/g, '');
-    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
-    
-    console.log(`📱 Clean phone: ${cleanPhone}`);
-    console.log(`🤖 WILL REPLY FROM: ${targetInstance.name} (${targetInstance.id})`);
+    console.log(`📤 WILL REPLY FROM: ${targetInstance.name} (${targetInstance.id})`);
+    console.log(`📤 Sending to chat_id: ${chatId}`);
     console.log(`🎯 Original message came from instance: ${incomingInstanceId || 'unknown'}`);
-    
-    if (cleanPhone.length < 10 || cleanPhone.length > 15) {
-        console.log(`⚠️ Invalid phone number length: ${cleanPhone.length}`);
-        return res.status(200).json({
-            received: true,
-            error: 'Invalid phone number',
-            phone: cleanPhone,
-            instance: targetInstance.name
-        });
-    }
     
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
         console.log(`🤖 Auto-reply found for message: "${message}" - Sending response...`);
-        const result = await sendWhatsAppMessage(targetInstance, cleanPhone, autoReply);
+        const result = await sendWhatsAppMessage(targetInstance, chatId, autoReply);
         
         return res.status(200).json({ 
             success: result.success,
@@ -481,7 +502,7 @@ module.exports = async (req, res) => {
             reply: autoReply.substring(0, 100) + (autoReply.length > 100 ? '...' : ''),
             from_instance: targetInstance.name,
             original_instance: incomingInstanceId || 'unknown',
-            phone: cleanPhone,
+            chat_id: chatId,
             result: result
         });
     } else {
