@@ -97,63 +97,49 @@ initialize();
 
 // ==================== HELPER FUNCTIONS ====================
 
-// 🔥 دالة لاستخراج رقم الهاتف الحقيقي من LID
+// دالة لاستخراج رقم الهاتف الحقيقي من LID
 function extractRealPhoneNumber(rawPhone, payload) {
     let cleanPhone = rawPhone;
     
-    // إذا كان الرقم من نوع LID
     if (rawPhone && rawPhone.includes('@lid')) {
         console.log(`⚠️ Received LID: ${rawPhone}`);
         
-        // محاولة استخراج الرقم من payload.participant
         if (payload && payload.participant && !payload.participant.includes('@lid')) {
             cleanPhone = payload.participant;
             console.log(`✅ Found participant: ${cleanPhone}`);
         }
-        // محاولة استخراج الرقم من payload.author
         else if (payload && payload.author && !payload.author.includes('@lid')) {
             cleanPhone = payload.author;
             console.log(`✅ Found author: ${cleanPhone}`);
         }
-        // محاولة استخراج الرقم من payload.to
         else if (payload && payload.to && !payload.to.includes('@lid')) {
             cleanPhone = payload.to;
             console.log(`✅ Found to: ${cleanPhone}`);
-        }
-        else {
-            // إذا كان الرقم يبدأ بـ 222 أو 333 (أرقام تجريبية)
-            const lidMatch = rawPhone.match(/(\d+)@lid/);
-            if (lidMatch) {
-                const lidNumber = lidMatch[1];
-                console.log(`⚠️ Cannot extract real phone from LID: ${lidNumber}`);
-                console.log(`💡 This appears to be a test/simulated number`);
-                return null;
-            }
         }
     }
     
     return cleanPhone;
 }
 
-// 🔥 دالة للتحقق من صحة الرقم
+// دالة للتحقق من صحة الرقم
 function isValidPhoneNumber(phone) {
     if (!phone) return false;
-    if (phone.includes('@lid')) return false;
     
     let cleanPhone = phone.toString();
     cleanPhone = cleanPhone.replace('@c.us', '');
+    cleanPhone = cleanPhone.replace('@lid', '');
     cleanPhone = cleanPhone.replace('+', '');
     cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
     
-    // التحقق من أن الرقم حقيقي (يبدأ بـ 2010, 2011, 2012, 2015, 2018, 2020)
-    const validPrefixes = ['2010', '2011', '2012', '2015', '2018', '2020', '2090', '210'];
-    const isValid = validPrefixes.some(prefix => cleanPhone.startsWith(prefix));
+    if (cleanPhone.length < 9) return false;
     
-    if (!isValid) {
-        console.log(`⚠️ Invalid phone number: ${cleanPhone} (not a real Egyptian number)`);
+    // الأرقام التي تبدأ بـ 222 أو 333 هي أرقام تجريبية
+    if (cleanPhone.startsWith('222') || cleanPhone.startsWith('333')) {
+        console.log(`⚠️ Test/simulated number detected: ${cleanPhone}`);
+        return false;
     }
     
-    return isValid && cleanPhone.length >= 10;
+    return true;
 }
 
 // ==================== AUTO REPLY RULES ====================
@@ -321,22 +307,27 @@ function findAutoReply(message) {
     return null;
 }
 
-async function sendWhatsAppMessage(phone, message) {
+// 🔥🔥🔥 الدالة المعدلة - المشكلة كانت هنا 🔥🔥🔥
+async function sendWhatsAppMessage(chatId, message) {
     try {
-        let cleanPhone = phone.toString();
-        cleanPhone = cleanPhone.replace('@c.us', '');
-        cleanPhone = cleanPhone.replace('@lid', '');
-        cleanPhone = cleanPhone.replace('+', '');
-        cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
-        if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+        // 🔥 الأهم: استخدم chat_id كما هو من webhook (مع @lid أو @c.us)
+        let targetChatId = chatId;
         
-        const chat_id = `${cleanPhone}@c.us`;
-        console.log(`📤 [${INSTANCE.name}] Sending to: ${chat_id}`);
+        // إذا كان chat_id لا يحتوي على @lid أو @c.us، أضف @c.us
+        if (!targetChatId.includes('@lid') && !targetChatId.includes('@c.us')) {
+            let cleanPhone = targetChatId.toString();
+            cleanPhone = cleanPhone.replace('+', '');
+            cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
+            if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+            targetChatId = `${cleanPhone}@c.us`;
+        }
+        
+        console.log(`📤 [${INSTANCE.name}] Sending to: ${targetChatId}`);
         console.log(`📤 Message: ${message.substring(0, 100)}...`);
         
         const response = await axios.post(
             `https://api.wapilot.net/api/v2/${INSTANCE.id}/send-message`,
-            { chat_id, text: message },
+            { chat_id: targetChatId, text: message },
             { headers: { "token": INSTANCE.token, "Content-Type": "application/json" } }
         );
         console.log(`✅ [${INSTANCE.name}] Sent successfully`);
@@ -369,53 +360,49 @@ module.exports = async (req, res) => {
     console.log('📦 Raw body:', JSON.stringify(req.body, null, 2));
     
     const data = req.body;
-    let rawPhone = null;
+    let rawChatId = null;
     let message = null;
     let isFromMe = false;
     
     if (data.event === 'message' && data.payload) {
-        rawPhone = data.payload.from;
+        rawChatId = data.payload.from;
         message = data.payload.body;
         isFromMe = data.payload.fromMe || false;
         
-        // 🔥 محاولة استخراج رقم حقيقي من الـ payload
-        const extractedPhone = extractRealPhoneNumber(rawPhone, data.payload);
-        if (extractedPhone && extractedPhone !== rawPhone) {
-            rawPhone = extractedPhone;
+        // محاولة استخراج رقم حقيقي من الـ payload إذا كان LID
+        const extractedPhone = extractRealPhoneNumber(rawChatId, data.payload);
+        if (extractedPhone && extractedPhone !== rawChatId) {
+            rawChatId = extractedPhone;
         }
     }
     
-    if (!rawPhone || !message) {
-        console.log('⚠️ Missing phone or message');
+    if (!rawChatId || !message) {
+        console.log('⚠️ Missing chat_id or message');
         return res.status(200).json({ 
             received: true, 
-            error: 'Missing phone or message',
+            error: 'Missing chat_id or message',
             receivedData: data
         });
     }
     
-    // 🔥 التحقق من صحة الرقم قبل المعالجة
-    if (!isValidPhoneNumber(rawPhone)) {
-        console.log(`❌ Cannot process: Invalid phone number ${rawPhone}`);
-        console.log(`💡 This is likely a test/simulated number from Wapilot`);
-        return res.status(200).json({ 
-            success: false, 
-            reason: "Invalid phone number (LID or test number)",
-            received: rawPhone
-        });
+    console.log(`📱 Original chat_id: ${rawChatId}`);
+    console.log(`💬 Message: "${message}"`);
+    console.log(`👤 Is from me: ${isFromMe}`);
+    
+    // 🔥 التحقق من LID - لا نمنعه، نرسل عليه كما هو
+    if (rawChatId.includes('@lid')) {
+        console.log(`⚠️ LID detected: ${rawChatId} - Will try to send to this exact ID`);
     }
     
-    let cleanPhone = rawPhone.toString();
+    // استخراج رقم نظيف للتخزين في Firebase (بدون @lid أو @c.us)
+    let cleanPhone = rawChatId.toString();
     cleanPhone = cleanPhone.replace('@c.us', '');
+    cleanPhone = cleanPhone.replace('@lid', '');
     cleanPhone = cleanPhone.replace('+', '');
     cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
     
-    console.log(`📱 Clean phone: ${cleanPhone}`);
-    console.log(`💬 Message: "${message}"`);
-    console.log(`👤 Is from me: ${isFromMe}`);
-    
-    // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM WITH FIREBASE 🔥🔥🔥
+    // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM 🔥🔥🔥
     
     if (isFromMe) {
         await saveUserState(INSTANCE_ID, cleanPhone, {
@@ -457,7 +444,8 @@ module.exports = async (req, res) => {
         
         const autoReply = findAutoReply(message);
         if (autoReply) {
-            await sendWhatsAppMessage(cleanPhone, autoReply);
+            // 🔥 إرسال باستخدام rawChatId الأصلي (مع @lid أو @c.us)
+            await sendWhatsAppMessage(rawChatId, autoReply);
         }
         return res.status(200).json({ success: true, mode: "human" });
     }
@@ -476,7 +464,8 @@ module.exports = async (req, res) => {
     
     if (autoReply) {
         console.log(`🤖 [${INSTANCE.name}] Auto-reply found, sending...`);
-        const result = await sendWhatsAppMessage(cleanPhone, autoReply);
+        // 🔥 إرسال باستخدام rawChatId الأصلي (مع @lid أو @c.us)
+        const result = await sendWhatsAppMessage(rawChatId, autoReply);
         return res.status(200).json({ success: result.success, replied: true });
     } else {
         console.log(`⚠️ No auto-reply found for: "${message}"`);
