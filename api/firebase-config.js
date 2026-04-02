@@ -1,5 +1,5 @@
 const { initializeApp } = require('firebase/app');
-const { getDatabase, ref, get, set, remove } = require('firebase/database');
+const { getDatabase, ref, get, set, remove, push } = require('firebase/database');
 
 // Firebase configuration
 const firebaseConfig = {
@@ -23,6 +23,8 @@ try {
 } catch (error) {
   console.error('❌ Firebase initialization error:', error.message);
 }
+
+// ==================== USER STATE FUNCTIONS ====================
 
 // حفظ حالة مستخدم
 async function saveUserState(instanceId, phone, mode) {
@@ -105,9 +107,114 @@ async function cleanupExpiredUsers(instanceId) {
     }
 }
 
+// ==================== NEW: MESSAGE HISTORY FUNCTIONS ====================
+
+// 💬 حفظ رسالة جديدة
+async function saveMessage(instanceId, phone, message, isFromMe, reply = null) {
+    try {
+        if (!database) return false;
+        
+        // استخدام push لإنشاء ID تلقائي مرتب زمنياً
+        const messagesRef = ref(database, `messages/${instanceId}/${phone}`);
+        const newMessageRef = push(messagesRef);
+        
+        const messageData = {
+            message: message,
+            fromMe: isFromMe,
+            timestamp: Date.now(),
+            timestamp_readable: new Date().toISOString()
+        };
+        
+        // إذا كان فيه رد من البوت، نضيفه
+        if (reply) {
+            messageData.reply = reply;
+        }
+        
+        await set(newMessageRef, messageData);
+        console.log(`💬 Firebase: Message saved for ${phone} (fromMe: ${isFromMe})`);
+        return true;
+    } catch (error) {
+        console.error('❌ Firebase message save error:', error.message);
+        return false;
+    }
+}
+
+// 📜 استرجاع محادثات مستخدم
+async function getUserMessages(instanceId, phone, limit = 50) {
+    try {
+        if (!database) return [];
+        const messagesRef = ref(database, `messages/${instanceId}/${phone}`);
+        const snapshot = await get(messagesRef);
+        
+        if (snapshot.exists()) {
+            const messages = snapshot.val();
+            // تحويل الكائن إلى مصفوفة وترتيبها حسب الوقت
+            const messagesArray = Object.entries(messages).map(([id, msg]) => ({
+                id,
+                ...msg
+            })).sort((a, b) => a.timestamp - b.timestamp).slice(-limit);
+            
+            console.log(`📜 Firebase: Retrieved ${messagesArray.length} messages for ${phone}`);
+            return messagesArray;
+        }
+        return [];
+    } catch (error) {
+        console.error('❌ Firebase get messages error:', error.message);
+        return [];
+    }
+}
+
+// 🗑️ حذف محادثات مستخدم (للخصوصية)
+async function deleteUserMessages(instanceId, phone) {
+    try {
+        if (!database) return false;
+        const messagesRef = ref(database, `messages/${instanceId}/${phone}`);
+        await remove(messagesRef);
+        console.log(`🗑️ Firebase: Deleted all messages for ${phone}`);
+        return true;
+    } catch (error) {
+        console.error('❌ Firebase delete messages error:', error.message);
+        return false;
+    }
+}
+
+// 📊 إحصائيات المحادثات
+async function getMessagesStats(instanceId) {
+    try {
+        if (!database) return null;
+        const messagesRef = ref(database, `messages/${instanceId}`);
+        const snapshot = await get(messagesRef);
+        
+        if (snapshot.exists()) {
+            const users = snapshot.val();
+            let totalMessages = 0;
+            let usersCount = 0;
+            
+            for (const [phone, msgs] of Object.entries(users)) {
+                usersCount++;
+                totalMessages += Object.keys(msgs).length;
+            }
+            
+            return {
+                usersCount,
+                totalMessages,
+                instanceId
+            };
+        }
+        return { usersCount: 0, totalMessages: 0, instanceId };
+    } catch (error) {
+        console.error('❌ Firebase stats error:', error.message);
+        return null;
+    }
+}
+
 module.exports = {
     saveUserState,
     getUserState,
     deleteUserState,
-    cleanupExpiredUsers
+    cleanupExpiredUsers,
+    saveMessage,
+    getUserMessages,
+    deleteUserMessages,
+    getMessagesStats
 };
