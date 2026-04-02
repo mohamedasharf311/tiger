@@ -142,7 +142,7 @@ ${companyData.shippingPrices.outsideAlexandria["120 جنيه"].join(' - ')}
     },
     {
         id: 3,
-        keywords: ['3', '٣', 'مدة التوصيل', 'التوصيل', 'المدة', 'وقت', 'كم يوم', 'delivery time', 'how long'],
+        keywords: ['3', '٣', 'مدة التوصيل', 'التوصيل', 'المدة', 'وقت', 'كم يوم', 'مدة الشحن', 'المدة كام', 'توصيل', 'الشحن', 'delivery time', 'delivery duration', 'how long', 'shipping time', 'when', 'time', 'duration', 'delivery'],
         reply: `⏱️ مدة التوصيل في النمر للشحن / Delivery Times:
 
 • ${companyData.deliveryTimes.north}
@@ -154,7 +154,7 @@ ${companyData.shippingPrices.outsideAlexandria["120 جنيه"].join(' - ')}
     },
     {
         id: 4,
-        keywords: ['4', '٤', 'طرق الدفع', 'الدفع', 'payment', 'how to pay', 'cash'],
+        keywords: ['4', '٤', 'طرق الدفع', 'الدفع', 'كيف ادفع', 'ادفع ازاي', 'طرق السداد', 'السداد', 'payment', 'payment methods', 'how to pay', 'pay', 'cash', 'bank transfer', 'instapay', 'vodafone cash', 'wallet'],
         reply: `💰 طرق الدفع في النمر للشحن / Payment Methods:
 
 • كاش / Cash 💵
@@ -167,7 +167,7 @@ ${companyData.shippingPrices.outsideAlexandria["120 جنيه"].join(' - ')}
     },
     {
         id: 5,
-        keywords: ['5', '٥', 'شروط', 'شروط الشحن', 'سياسة', 'terms', 'conditions'],
+        keywords: ['5', '٥', 'شروط', 'شروط الشحن', 'سياسة', 'قوانين', 'ممنوع', 'مسموح', 'ضمان', 'terms', 'conditions', 'policy', 'rules', 'shipping terms', 'warranty', 'fragile', 'insurance'],
         reply: `📋 شروط الشحن في النمر للشحن / Shipping Terms:
 
 ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
@@ -177,13 +177,13 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
     },
     {
         id: 6,
-        keywords: ['6', '٦', 'خدمة العملاء', 'خدمه العملاء', 'دعم', 'support', 'customer service', 'agent', 'human', 'موظف'],
+        keywords: ['6', '٦', 'خدمة العملاء', 'خدمه العملاء', 'دعم', 'تكلم مع موظف', 'موظف', 'تحكم', 'شكوى', 'مشكلة', 'اتصل بمسؤول', 'مسؤول', 'customer service', 'support', 'agent', 'human', 'complaint', 'problem', 'talk to someone', 'representative', 'issue'],
         reply: "👤 تم تحويل محادثتك إلى خدمة العملاء في النمر للشحن. سيتم الرد عليك يدوياً في أقرب وقت. شكراً لصبرك.\n\nYour conversation has been transferred to customer service. You will receive a manual reply shortly. Thank you for your patience.",
         active: true
     },
     {
         id: 7,
-        keywords: ['طلب شحن', 'شحنة', 'طلب', 'اوردر', 'اطلب', 'order', 'new order'],
+        keywords: ['طلب شحن', 'شحنة', 'طلب', 'اوردر', 'اطلب', 'شراء', 'عايز أطلب', 'عايز اشتري', 'احجز', 'اريد شحن', 'اريد طلب', 'new order', 'place order', 'order', 'shipping request', 'send package', 'i want to ship', 'book', 'request shipping', 'create order'],
         reply: `🛍️ لطلب شحنة جديدة في النمر للشحن، يرجى إرسال / To place a new order, please send:
 
 1️⃣ اسمك الكامل / Full name
@@ -199,7 +199,7 @@ We will contact you to confirm price and pickup time.
     },
     {
         id: 8,
-        keywords: ['vip', 'VIP', 'نفس اليوم', 'توصيل سريع', 'express', 'same day'],
+        keywords: ['vip', 'VIP', 'نفس اليوم', 'توصيل سريع', 'توصيل فوري', 'سريع', 'عاجل', 'خدمة vip', 'اسرع توصيل', 'same day', 'express', 'urgent', 'fast delivery', 'quick', 'priority', 'rapid'],
         reply: `🚚 خدمة VIP توصيل نفس اليوم في النمر للشحن / VIP Same Day Delivery:
 
 • متاحة داخل الإسكندرية فقط / Available only in Alexandria
@@ -211,13 +211,35 @@ We will contact you to confirm price and pickup time.
     },
     {
         id: 9,
-        keywords: ['شكرا', 'ممتاز', 'تمام', 'شكراً', 'thank', 'thanks', 'great'],
+        keywords: ['شكرا', 'ممتاز', 'تمام', 'شكراً', 'تسلم', 'الله يبارك فيك', 'حلو', 'جميل', 'تم', 'مشكور', 'thank', 'thanks', 'great', 'excellent', 'good', 'perfect', 'ok', 'awesome', 'nice', 'done'],
         reply: `🎉 شكراً لك على تواصلك مع النمر للشحن! / Thank you for contacting ELNMR Shipping!
 
 نحن في خدمتك دائماً. إذا احتجت أي مساعدة أخرى، فقط اكتب 'قائمة' للعودة للخدمات المتاحة.
 We are always at your service. If you need any further assistance, just type 'menu' to return to available services.
 
 نتمنى لك يوماً سعيداً! 🐯 / Have a great day! 🐯`,
+        active: true
+    },
+    {
+        id: 10,
+        keywords: ['عايز استفسر', 'عندي سؤال', 'ممكن اسأل', 'محتاج اعرف', 'عايز اعرف', 'عندكم', 'هل يوجد', 'متوفر', 'التفاصيل', 'ايه المميزات', 'بيشتغل ازاي', 'ينفع ل', 'مناسب ليا', 'الفرق بين', 'ضمان كام', 'الجودة', 'فيه صور', 'ابعت تفاصيل', 'inquiry', 'question', 'information', 'details', 'what is', 'how to', 'tell me', 'i need to know', 'about', 'services'],
+        reply: `📋 للاستفسار عن خدمات النمر للشحن / For inquiries about ELNMR Shipping services:
+
+لدينا الخدمات التالية / We offer:
+• شحن داخل وخارج الإسكندرية / Shipping inside and outside Alexandria
+• تخزين بضائع / Storage
+• تغليف / Packaging
+• خدمة VIP توصيل نفس اليوم / VIP Same Day Delivery
+
+للحصول على معلومات محددة / For specific information:
+• اضغط 1 لأسعار داخل الإسكندرية / Press 1 for Alexandria prices
+• اضغط 2 لأسعار خارج الإسكندرية / Press 2 for outside Alexandria prices
+• اضغط 3 لمدة التوصيل / Press 3 for delivery time
+• اضغط 4 لطرق الدفع / Press 4 for payment methods
+• اضغط 5 للشروط والسياسات / Press 5 for terms and policies
+• اضغط 6 للتواصل مع خدمة العملاء / Press 6 to contact customer service
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
         active: true
     }
 ];
@@ -250,6 +272,7 @@ async function sendWhatsAppMessage(phone, message) {
         
         const chat_id = `${cleanPhone}@c.us`;
         console.log(`📤 [${INSTANCE.name}] Sending to: ${chat_id}`);
+        console.log(`📤 Message: ${message.substring(0, 100)}...`);
         
         const response = await axios.post(
             `https://api.wapilot.net/api/v2/${INSTANCE.id}/send-message`,
@@ -283,38 +306,88 @@ module.exports = async (req, res) => {
     }
     
     console.log('📩 Webhook received for instance 2:', new Date().toISOString());
+    console.log('📦 Raw body:', JSON.stringify(req.body, null, 2));
     
     const data = req.body;
     let rawPhone = null;
     let message = null;
     let isFromMe = false;
     
-    if (data.event === 'message' && data.payload) {
-        rawPhone = data.payload.from;
-        message = data.payload.body;
-        isFromMe = data.payload.fromMe || false;
+    // 🔥 محاولة استخراج البيانات من كل التنسيقات الممكنة
+    if (data) {
+        // تنسيق Wapilot webhook
+        if (data.event === 'message' && data.payload) {
+            rawPhone = data.payload.from;
+            message = data.payload.body;
+            isFromMe = data.payload.fromMe || false;
+        }
+        // تنسيق آخر
+        else if (data.from) {
+            rawPhone = data.from;
+            message = data.body || data.text;
+            isFromMe = data.fromMe || false;
+        }
+        // تنسيق مباشر
+        else if (data.phone) {
+            rawPhone = data.phone;
+            message = data.message || data.text;
+        }
+        // تنسيق sender
+        else if (data.sender) {
+            rawPhone = data.sender;
+            message = data.text || data.message;
+        }
+        // تنسيق body مباشر
+        else if (data.body) {
+            rawPhone = data.from || data.sender;
+            message = data.body;
+        }
+        // تنسيق text مباشر
+        else if (data.text) {
+            rawPhone = data.from || data.sender;
+            message = data.text;
+        }
     }
     
-    if (!rawPhone && data.from) {
-        rawPhone = data.from;
-        message = data.body || data.text;
-        isFromMe = data.fromMe || false;
+    // إذا لسه مفيش بيانات، جرب من الـ query string
+    if (!rawPhone && req.query.phone) {
+        rawPhone = req.query.phone;
+        message = req.query.message;
+    }
+    
+    // إذا لسه مفيش بيانات، جرب من الـ headers
+    if (!rawPhone && req.headers['x-phone']) {
+        rawPhone = req.headers['x-phone'];
+        message = req.headers['x-message'];
     }
     
     if (!rawPhone || !message) {
         console.log('⚠️ Missing phone or message');
-        return res.status(200).json({ received: true, error: 'Missing data' });
+        console.log('📱 Phone found:', rawPhone);
+        console.log('💬 Message found:', message);
+        return res.status(200).json({ 
+            received: true, 
+            error: 'Missing phone or message',
+            receivedData: data,
+            query: req.query,
+            headers: req.headers
+        });
     }
     
-    let cleanPhone = rawPhone.replace('@c.us', '').replace('+', '').replace(/[^0-9]/g, '');
+    let cleanPhone = rawPhone.toString();
+    cleanPhone = cleanPhone.replace('@c.us', '');
+    cleanPhone = cleanPhone.replace('@lid', '');
+    cleanPhone = cleanPhone.replace('+', '');
+    cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
     
-    console.log(`📱 Phone: ${cleanPhone}`);
-    console.log(`💬 Message: ${message}`);
+    console.log(`📱 Clean phone: ${cleanPhone}`);
+    console.log(`💬 Message: "${message}"`);
     console.log(`👤 Is from me: ${isFromMe}`);
     
     // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM WITH FIREBASE 🔥🔥🔥
     
+    // الحالة 1: أنا اللي برد على العميل (fromMe = true)
     if (isFromMe) {
         await saveUserState(INSTANCE_ID, cleanPhone, {
             mode: "human",
@@ -325,14 +398,17 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human", storage: "Firebase" });
     }
     
+    // استرجاع حالة العميل من Firebase
     const userState = await getUserState(INSTANCE_ID, cleanPhone);
     
+    // الحالة 2: العميل في وضع human (البوت يسكت خالص)
     if (userState && userState.mode === "human") {
         await updateUserTimestamp(cleanPhone);
         console.log(`🤫 [${INSTANCE.name}] Human mode active for ${cleanPhone}, bot silent`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
+    // 🔥 التحقق من طلب تحويل لخدمة العملاء (الرقم 6)
     const isCustomerServiceRequest = (
         message.trim() === '6' || 
         message.trim() === '٦' ||
@@ -360,6 +436,7 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human" });
     }
     
+    // 🔥 التحقق من طلب العودة للبوت (قائمة أو menu)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
     if (isMenuRequest && userState && userState.mode === "human") {
         if (timeouts[cleanPhone]) {
@@ -370,14 +447,15 @@ module.exports = async (req, res) => {
         console.log(`🤖 [${INSTANCE.name}] User ${cleanPhone} switched back to BOT mode (requested menu)`);
     }
     
+    // البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
-        console.log(`🤖 [${INSTANCE.name}] Auto-reply sent to ${cleanPhone}`);
+        console.log(`🤖 [${INSTANCE.name}] Auto-reply found, sending...`);
         const result = await sendWhatsAppMessage(cleanPhone, autoReply);
         return res.status(200).json({ success: result.success, replied: true });
     } else {
-        console.log(`⚠️ No auto-reply found for: ${message}`);
+        console.log(`⚠️ No auto-reply found for: "${message}"`);
         return res.status(200).json({ success: true, replied: false });
     }
 };
