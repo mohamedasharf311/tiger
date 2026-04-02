@@ -1,4 +1,3 @@
-// api/firebase-config.js
 const { initializeApp } = require('firebase/app');
 const { getDatabase, ref, get, set, remove } = require('firebase/database');
 
@@ -26,19 +25,16 @@ try {
 }
 
 // حفظ حالة مستخدم
-async function saveUserState(instanceId, phone, state) {
+async function saveUserState(instanceId, phone, mode) {
     try {
-        if (!database) {
-            console.log('⚠️ Firebase not available, using memory only');
-            return false;
-        }
+        if (!database) return false;
         const userRef = ref(database, `userStates/${instanceId}/${phone}`);
         await set(userRef, {
-            mode: state.mode,
-            timestamp: state.timestamp,
+            mode: mode,
+            timestamp: Date.now(),
             instanceId: instanceId
         });
-        console.log(`💾 Firebase: Saved state for ${phone} in ${instanceId}`);
+        console.log(`💾 Firebase: Saved state for ${phone} (${mode}) in ${instanceId}`);
         return true;
     } catch (error) {
         console.error('❌ Firebase save error:', error.message);
@@ -53,8 +49,9 @@ async function getUserState(instanceId, phone) {
         const userRef = ref(database, `userStates/${instanceId}/${phone}`);
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
-            console.log(`📥 Firebase: Loaded state for ${phone} in ${instanceId}`);
-            return snapshot.val();
+            const data = snapshot.val();
+            console.log(`📥 Firebase: Loaded state for ${phone}: ${data.mode}`);
+            return data.mode;
         }
         return null;
     } catch (error) {
@@ -69,7 +66,7 @@ async function deleteUserState(instanceId, phone) {
         if (!database) return false;
         const userRef = ref(database, `userStates/${instanceId}/${phone}`);
         await remove(userRef);
-        console.log(`🗑️ Firebase: Deleted state for ${phone} in ${instanceId}`);
+        console.log(`🗑️ Firebase: Deleted state for ${phone}`);
         return true;
     } catch (error) {
         console.error('❌ Firebase delete error:', error.message);
@@ -77,38 +74,7 @@ async function deleteUserState(instanceId, phone) {
     }
 }
 
-// استرجاع جميع المستخدمين في وضع human
-async function getAllHumanUsers(instanceId) {
-    try {
-        if (!database) return {};
-        const usersRef = ref(database, `userStates/${instanceId}`);
-        const snapshot = await get(usersRef);
-        if (snapshot.exists()) {
-            const users = snapshot.val();
-            const now = Date.now();
-            const TIMEOUT_DURATION = 30 * 60 * 1000;
-            const activeUsers = {};
-            
-            for (const [phone, user] of Object.entries(users)) {
-                if (user.mode === "human") {
-                    const elapsed = now - user.timestamp;
-                    if (elapsed < TIMEOUT_DURATION) {
-                        activeUsers[phone] = user;
-                    } else {
-                        await deleteUserState(instanceId, phone);
-                    }
-                }
-            }
-            return activeUsers;
-        }
-        return {};
-    } catch (error) {
-        console.error('❌ Firebase load users error:', error.message);
-        return {};
-    }
-}
-
-// تنظيف المستخدمين المنتهيين
+// تنظيف المستخدمين المنتهيين (أكثر من 30 دقيقة)
 async function cleanupExpiredUsers(instanceId) {
     try {
         if (!database) return;
@@ -143,6 +109,5 @@ module.exports = {
     saveUserState,
     getUserState,
     deleteUserState,
-    getAllHumanUsers,
     cleanupExpiredUsers
 };
