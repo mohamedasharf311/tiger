@@ -1,4 +1,6 @@
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 // ==================== COMPANY DATA ====================
 const companyData = {
@@ -48,10 +50,70 @@ const companyData = {
 
 // ==================== USER STATE MANAGEMENT ====================
 // 3 حالات لكل عميل:
-// 🤖 "bot" - البوت يرد تلقائياً
+// 🤖 "bot" - البوت يرد تلقائياً (الوضع الافتراضي)
 // 👨‍💼 "human" - البوت ساكت، أنت ترد
-// ⏳ "pending" - مستني رد منك، البوت يرد بشكل محدود
 const userState = {};
+
+// 🔥 ملف لحفظ الحالات بشكل دائم (حتى بعد إعادة التشغيل)
+const STATE_FILE = path.join(__dirname, '..', 'data', 'user-states.json');
+const DATA_DIR = path.join(__dirname, '..', 'data');
+
+// التأكد من وجود مجلد data
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// تحميل الحالات المحفوظة عند بدء التشغيل
+function loadUserStates() {
+    try {
+        if (fs.existsSync(STATE_FILE)) {
+            const data = fs.readFileSync(STATE_FILE, 'utf8');
+            const saved = JSON.parse(data);
+            Object.assign(userState, saved);
+            console.log(`📂 Loaded ${Object.keys(userState).length} user states from file`);
+        }
+    } catch (error) {
+        console.error('Error loading user states:', error);
+    }
+}
+
+// حفظ الحالات في ملف
+function saveUserStates() {
+    try {
+        fs.writeFileSync(STATE_FILE, JSON.stringify(userState, null, 2));
+        console.log(`💾 Saved ${Object.keys(userState).length} user states to file`);
+    } catch (error) {
+        console.error('Error saving user states:', error);
+    }
+}
+
+// تحميل الحالات عند بدء التشغيل
+loadUserStates();
+
+// حفظ الحالات كل دقيقة (اختياري)
+setInterval(saveUserStates, 60 * 1000);
+
+// 🔥 Auto timeout - لو أنت نسيت العميل، يرجع تلقائياً للبوت بعد 30 دقيقة
+const TIMEout = 30 * 60 * 1000; // 30 دقيقة
+
+function setAutoTimeout(phone) {
+    if (userState[phone] && userState[phone].timeout) {
+        clearTimeout(userState[phone].timeout);
+    }
+    
+    if (userState[phone] && userState[phone].mode === "human") {
+        const timeoutId = setTimeout(() => {
+            if (userState[phone] && userState[phone].mode === "human") {
+                delete userState[phone];
+                saveUserStates();
+                console.log(`🤖 Auto timeout: User ${phone} switched back to BOT mode after 30 minutes`);
+            }
+        }, TIMEout);
+        
+        userState[phone].timeout = timeoutId;
+        saveUserStates();
+    }
+}
 
 // Instance Configuration
 const INSTANCE = {
@@ -271,24 +333,32 @@ module.exports = async (req, res) => {
     console.log(`💬 Message: ${message}`);
     console.log(`👤 Is from me: ${isFromMe}`);
     
-    // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM - CORE LOGIC 🔥🔥🔥
+    // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM - CORRECTED LOGIC 🔥🔥🔥
     
     // الحالة 1: أنا اللي برد على العميل (fromMe = true)
     if (isFromMe) {
-        // حول العميل إلى وضع human فوراً
-        userState[cleanPhone] = "human";
-        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (I replied)`);
+        // التحقق من الحالة الحالية
+        const currentMode = userState[cleanPhone]?.mode || "bot";
         
-        // إرجاع استجابة بدون إرسال أي رد (لأن الرد أنا بعته)
+        // تحويل العميل إلى وضع human
+        userState[cleanPhone] = { 
+            mode: "human",
+            timestamp: Date.now()
+        };
+        setAutoTimeout(cleanPhone);
+        saveUserStates();
+        
+        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (I replied from ${currentMode})`);
+        
         return res.status(200).json({ 
             success: true, 
             mode: "human",
-            message: "You replied to user, bot disabled for this user"
+            message: "You replied to user, bot disabled for this user for 30 minutes"
         });
     }
     
     // الحالة 2: العميل في وضع human (البوت يسكت خالص)
-    if (userState[cleanPhone] === "human") {
+    if (userState[cleanPhone]?.mode === "human") {
         console.log(`🤫 [${INSTANCE.name}] Human mode active for ${cleanPhone}, bot silent`);
         return res.status(200).json({ 
             success: true, 
@@ -297,45 +367,48 @@ module.exports = async (req, res) => {
         });
     }
     
-    // الحالة 3: العميل في وضع pending (مستني رد مني)
-    if (userState[cleanPhone] === "pending") {
-        console.log(`⏳ [${INSTANCE.name}] Pending mode for ${cleanPhone}, waiting for your reply`);
-        // في وضع pending، البوت يرد فقط على "قائمة" أو "menu"
-        const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
-        if (!isMenuRequest) {
-            return res.status(200).json({ 
-                success: true, 
-                mode: "pending",
-                message: "Waiting for human response"
-            });
-        }
-    }
-    
-    // 🔥 التحقق من طلب تحويل لخدمة العملاء
+    // 🔥 التحقق من طلب تحويل لخدمة العملاء (الرقم 6)
     const isCustomerServiceRequest = (
         message.trim() === '6' || 
         message.trim() === '٦' ||
         message.toLowerCase().includes('خدمة العملاء') ||
+        message.toLowerCase().includes('خدمه العملاء') ||
+        message.toLowerCase().includes('customer service') ||
         message.toLowerCase().includes('support') ||
         message.toLowerCase().includes('agent') ||
-        message.toLowerCase().includes('human')
+        message.toLowerCase().includes('human') ||
+        message.toLowerCase().includes('موظف')
     );
     
     if (isCustomerServiceRequest) {
-        userState[cleanPhone] = "human";
-        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (requested)`);
+        userState[cleanPhone] = { 
+            mode: "human",
+            timestamp: Date.now()
+        };
+        setAutoTimeout(cleanPhone);
+        saveUserStates();
+        
+        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (requested via 6)`);
+        
+        // إرسال رسالة تأكيد التحويل
         const autoReply = findAutoReply(message);
         if (autoReply) {
             await sendWhatsAppMessage(cleanPhone, autoReply);
         }
-        return res.status(200).json({ success: true, mode: "human" });
+        
+        return res.status(200).json({ 
+            success: true, 
+            mode: "human",
+            message: "Customer service mode activated"
+        });
     }
     
     // 🔥 التحقق من طلب العودة للبوت (قائمة أو menu)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
-    if (isMenuRequest && (userState[cleanPhone] === "human" || userState[cleanPhone] === "pending")) {
+    if (isMenuRequest && userState[cleanPhone]?.mode === "human") {
         delete userState[cleanPhone];
-        console.log(`🤖 [${INSTANCE.name}] User ${cleanPhone} switched back to BOT mode`);
+        saveUserStates();
+        console.log(`🤖 [${INSTANCE.name}] User ${cleanPhone} switched back to BOT mode (requested menu)`);
     }
     
     // البحث عن رد تلقائي
@@ -345,23 +418,21 @@ module.exports = async (req, res) => {
         console.log(`🤖 [${INSTANCE.name}] Auto-reply sent to ${cleanPhone}`);
         const result = await sendWhatsAppMessage(cleanPhone, autoReply);
         
-        // بعد الرد، حول العميل إلى وضع pending (مستني رد مني)
-        if (result.success) {
-            userState[cleanPhone] = "pending";
-            console.log(`⏳ [${INSTANCE.name}] User ${cleanPhone} switched to PENDING mode (waiting for human)`);
-        }
+        // ✅ لا نغير الحالة هنا - العميل يبقى في وضعه الحالي (bot)
+        // البوت يرد فقط ولا يؤثر على حالة العميل
         
         return res.status(200).json({ 
             success: result.success,
             replied: true,
-            mode: "pending"
+            mode: userState[cleanPhone]?.mode || "bot"
         });
     } else {
         console.log(`⚠️ No auto-reply found for: ${message}`);
         return res.status(200).json({ 
             success: true, 
             replied: false,
-            reason: 'No matching rule found'
+            reason: 'No matching rule found',
+            mode: userState[cleanPhone]?.mode || "bot"
         });
     }
 };
