@@ -94,7 +94,7 @@ async function setAutoTimeout(chatId) {
     }, TIMEOUT_DURATION);
 }
 
-// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول (behavior detection)
+// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول (behavior detection) - بدون شرط عدد الحروف
 function isMessageFromAdmin(message, isFromMe, chatId) {
     // 1. إذا كانت fromMe = true → أكيد مني
     if (isFromMe) {
@@ -108,23 +108,19 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
         return true;
     }
     
-    // 3. كشف behavior: الرسائل القصيرة جداً (غالباً ردود)
-    if (message.length < 3) {
-        console.log(`✅ Admin detected by message length (${message.length} chars) - too short for customer`);
-        return true;
-    }
-    
-    // 4. إذا كانت الرسالة لا تحتوي على أي كلمة مفتاحية للعملاء
+    // 3. إذا كانت الرسالة تحتوي على كلمات مفتاحية للعملاء → عميل
     const lowerMsg = message.toLowerCase();
     const hasCustomerKeyword = CUSTOMER_KEYWORDS.some(keyword => 
         lowerMsg.includes(keyword.toLowerCase())
     );
     
-    if (!hasCustomerKeyword && message.length > 2) {
-        console.log(`✅ Admin detected - no customer keywords found in: "${message}"`);
-        return true;
+    if (hasCustomerKeyword) {
+        console.log(`✅ Customer detected - has customer keyword`);
+        return false;
     }
     
+    // 4. افتراضياً: إذا مرت كل الفحوصات، نعتبرها من العميل
+    console.log(`✅ Customer detected by default - message: "${message}"`);
     return false;
 }
 
