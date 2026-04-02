@@ -95,6 +95,67 @@ async function initialize() {
 
 initialize();
 
+// ==================== HELPER FUNCTIONS ====================
+
+// 🔥 دالة لاستخراج رقم الهاتف الحقيقي من LID
+function extractRealPhoneNumber(rawPhone, payload) {
+    let cleanPhone = rawPhone;
+    
+    // إذا كان الرقم من نوع LID
+    if (rawPhone && rawPhone.includes('@lid')) {
+        console.log(`⚠️ Received LID: ${rawPhone}`);
+        
+        // محاولة استخراج الرقم من payload.participant
+        if (payload && payload.participant && !payload.participant.includes('@lid')) {
+            cleanPhone = payload.participant;
+            console.log(`✅ Found participant: ${cleanPhone}`);
+        }
+        // محاولة استخراج الرقم من payload.author
+        else if (payload && payload.author && !payload.author.includes('@lid')) {
+            cleanPhone = payload.author;
+            console.log(`✅ Found author: ${cleanPhone}`);
+        }
+        // محاولة استخراج الرقم من payload.to
+        else if (payload && payload.to && !payload.to.includes('@lid')) {
+            cleanPhone = payload.to;
+            console.log(`✅ Found to: ${cleanPhone}`);
+        }
+        else {
+            // إذا كان الرقم يبدأ بـ 222 أو 333 (أرقام تجريبية)
+            const lidMatch = rawPhone.match(/(\d+)@lid/);
+            if (lidMatch) {
+                const lidNumber = lidMatch[1];
+                console.log(`⚠️ Cannot extract real phone from LID: ${lidNumber}`);
+                console.log(`💡 This appears to be a test/simulated number`);
+                return null;
+            }
+        }
+    }
+    
+    return cleanPhone;
+}
+
+// 🔥 دالة للتحقق من صحة الرقم
+function isValidPhoneNumber(phone) {
+    if (!phone) return false;
+    if (phone.includes('@lid')) return false;
+    
+    let cleanPhone = phone.toString();
+    cleanPhone = cleanPhone.replace('@c.us', '');
+    cleanPhone = cleanPhone.replace('+', '');
+    cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
+    
+    // التحقق من أن الرقم حقيقي (يبدأ بـ 2010, 2011, 2012, 2015, 2018, 2020)
+    const validPrefixes = ['2010', '2011', '2012', '2015', '2018', '2020', '2090', '210'];
+    const isValid = validPrefixes.some(prefix => cleanPhone.startsWith(prefix));
+    
+    if (!isValid) {
+        console.log(`⚠️ Invalid phone number: ${cleanPhone} (not a real Egyptian number)`);
+    }
+    
+    return isValid && cleanPhone.length >= 10;
+}
+
 // ==================== AUTO REPLY RULES ====================
 let autoRules = [
     {
@@ -244,7 +305,6 @@ We are always at your service. If you need any further assistance, just type 'me
     }
 ];
 
-// ==================== HELPER FUNCTIONS ====================
 function findAutoReply(message) {
     if (!message) return null;
     const lowerMsg = message.toLowerCase().trim();
@@ -313,70 +373,40 @@ module.exports = async (req, res) => {
     let message = null;
     let isFromMe = false;
     
-    // 🔥 محاولة استخراج البيانات من كل التنسيقات الممكنة
-    if (data) {
-        // تنسيق Wapilot webhook
-        if (data.event === 'message' && data.payload) {
-            rawPhone = data.payload.from;
-            message = data.payload.body;
-            isFromMe = data.payload.fromMe || false;
+    if (data.event === 'message' && data.payload) {
+        rawPhone = data.payload.from;
+        message = data.payload.body;
+        isFromMe = data.payload.fromMe || false;
+        
+        // 🔥 محاولة استخراج رقم حقيقي من الـ payload
+        const extractedPhone = extractRealPhoneNumber(rawPhone, data.payload);
+        if (extractedPhone && extractedPhone !== rawPhone) {
+            rawPhone = extractedPhone;
         }
-        // تنسيق آخر
-        else if (data.from) {
-            rawPhone = data.from;
-            message = data.body || data.text;
-            isFromMe = data.fromMe || false;
-        }
-        // تنسيق مباشر
-        else if (data.phone) {
-            rawPhone = data.phone;
-            message = data.message || data.text;
-        }
-        // تنسيق sender
-        else if (data.sender) {
-            rawPhone = data.sender;
-            message = data.text || data.message;
-        }
-        // تنسيق body مباشر
-        else if (data.body) {
-            rawPhone = data.from || data.sender;
-            message = data.body;
-        }
-        // تنسيق text مباشر
-        else if (data.text) {
-            rawPhone = data.from || data.sender;
-            message = data.text;
-        }
-    }
-    
-    // إذا لسه مفيش بيانات، جرب من الـ query string
-    if (!rawPhone && req.query.phone) {
-        rawPhone = req.query.phone;
-        message = req.query.message;
-    }
-    
-    // إذا لسه مفيش بيانات، جرب من الـ headers
-    if (!rawPhone && req.headers['x-phone']) {
-        rawPhone = req.headers['x-phone'];
-        message = req.headers['x-message'];
     }
     
     if (!rawPhone || !message) {
         console.log('⚠️ Missing phone or message');
-        console.log('📱 Phone found:', rawPhone);
-        console.log('💬 Message found:', message);
         return res.status(200).json({ 
             received: true, 
             error: 'Missing phone or message',
-            receivedData: data,
-            query: req.query,
-            headers: req.headers
+            receivedData: data
+        });
+    }
+    
+    // 🔥 التحقق من صحة الرقم قبل المعالجة
+    if (!isValidPhoneNumber(rawPhone)) {
+        console.log(`❌ Cannot process: Invalid phone number ${rawPhone}`);
+        console.log(`💡 This is likely a test/simulated number from Wapilot`);
+        return res.status(200).json({ 
+            success: false, 
+            reason: "Invalid phone number (LID or test number)",
+            received: rawPhone
         });
     }
     
     let cleanPhone = rawPhone.toString();
     cleanPhone = cleanPhone.replace('@c.us', '');
-    cleanPhone = cleanPhone.replace('@lid', '');
     cleanPhone = cleanPhone.replace('+', '');
     cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
@@ -387,7 +417,6 @@ module.exports = async (req, res) => {
     
     // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM WITH FIREBASE 🔥🔥🔥
     
-    // الحالة 1: أنا اللي برد على العميل (fromMe = true)
     if (isFromMe) {
         await saveUserState(INSTANCE_ID, cleanPhone, {
             mode: "human",
@@ -395,20 +424,17 @@ module.exports = async (req, res) => {
         });
         await setAutoTimeout(cleanPhone);
         console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (I replied)`);
-        return res.status(200).json({ success: true, mode: "human", storage: "Firebase" });
+        return res.status(200).json({ success: true, mode: "human" });
     }
     
-    // استرجاع حالة العميل من Firebase
     const userState = await getUserState(INSTANCE_ID, cleanPhone);
     
-    // الحالة 2: العميل في وضع human (البوت يسكت خالص)
     if (userState && userState.mode === "human") {
         await updateUserTimestamp(cleanPhone);
         console.log(`🤫 [${INSTANCE.name}] Human mode active for ${cleanPhone}, bot silent`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    // 🔥 التحقق من طلب تحويل لخدمة العملاء (الرقم 6)
     const isCustomerServiceRequest = (
         message.trim() === '6' || 
         message.trim() === '٦' ||
@@ -436,7 +462,6 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human" });
     }
     
-    // 🔥 التحقق من طلب العودة للبوت (قائمة أو menu)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
     if (isMenuRequest && userState && userState.mode === "human") {
         if (timeouts[cleanPhone]) {
@@ -447,7 +472,6 @@ module.exports = async (req, res) => {
         console.log(`🤖 [${INSTANCE.name}] User ${cleanPhone} switched back to BOT mode (requested menu)`);
     }
     
-    // البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
