@@ -1,5 +1,12 @@
 const axios = require('axios');
-const { saveUserState, getUserState, deleteUserState, cleanupExpiredUsers } = require('./firebase-config');
+const { 
+    saveUserState, 
+    getUserState, 
+    deleteUserState, 
+    cleanupExpiredUsers,
+    saveMessage,        // 🔥 جديد
+    getMessagesStats    // 🔥 جديد (اختياري)
+} = require('./firebase-config');
 
 // ==================== COMPANY DATA ====================
 const companyData = {
@@ -57,9 +64,12 @@ const INSTANCE = {
     active: true
 };
 
-// ==================== CACHE للـ timeouts (في الذاكرة فقط) ====================
+// 🔥 رقم هاتف المسؤول
+const ADMIN_PHONE = "201119383101";
+
+// ==================== CACHE للـ timeouts ====================
 const timeouts = {};
-const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 دقيقة
+const TIMEOUT_DURATION = 30 * 60 * 1000;
 
 async function setAutoTimeout(phone) {
     if (timeouts[phone]) {
@@ -226,7 +236,6 @@ We are always at your service. If you need any further assistance, just type 'me
     }
 ];
 
-// ==================== HELPER FUNCTIONS ====================
 function findAutoReply(message) {
     if (!message) return null;
     const lowerMsg = message.toLowerCase().trim();
@@ -243,14 +252,8 @@ function findAutoReply(message) {
         for (let rule of autoRules) {
             if (!rule.active) continue;
             for (let keyword of rule.keywords) {
-                if (keyword === number.toString() || 
-                    (keyword === '1' && number === 1) ||
-                    (keyword === '2' && number === 2) ||
-                    (keyword === '3' && number === 3) ||
-                    (keyword === '4' && number === 4) ||
-                    (keyword === '5' && number === 5) ||
-                    (keyword === '6' && number === 6)) {
-                    console.log(`✅ [${INSTANCE.name}] Number match: ${number}`);
+                if (keyword === number.toString()) {
+                    console.log(`✅ Number match: ${number}`);
                     return rule.reply;
                 }
             }
@@ -262,7 +265,7 @@ function findAutoReply(message) {
         for (let keyword of rule.keywords) {
             const keywordLower = keyword.toLowerCase();
             if (lowerMsg === keywordLower || lowerMsg.includes(keywordLower)) {
-                console.log(`✅ [${INSTANCE.name}] Match found: ${keyword}`);
+                console.log(`✅ Match found: ${keyword}`);
                 return rule.reply;
             }
         }
@@ -274,7 +277,7 @@ function findAutoReply(message) {
 async function sendWhatsAppMessage(chat_id, message) {
     try {
         console.log(`📤 [${INSTANCE.name}] Sending to: ${chat_id}`);
-        console.log(`📤 Message preview: ${message.substring(0, 100)}...`);
+        console.log(`📤 Message: ${message.substring(0, 100)}...`);
         
         const response = await axios.post(
             `https://api.wapilot.net/api/v2/${INSTANCE.id}/send-message`,
@@ -283,17 +286,22 @@ async function sendWhatsAppMessage(chat_id, message) {
         );
         
         console.log(`✅ [${INSTANCE.name}] Sent successfully`);
-        return { success: true, data: response.data };
+        return { success: true, message: message };
     } catch (error) {
-        console.error(`❌ [${INSTANCE.name}] Send failed:`, error.response?.data || error.message);
+        console.error(`❌ Send failed:`, error.response?.data || error.message);
         return { success: false, error: error.response?.data || error.message };
     }
 }
 
-// تنظيف عند بدء التشغيل
 async function initialize() {
     console.log(`🚀 Initializing ${INSTANCE.name} with Firebase...`);
     await cleanupExpiredUsers(INSTANCE_ID);
+    
+    // عرض إحصائيات المحادثات (اختياري)
+    const stats = await getMessagesStats(INSTANCE_ID);
+    if (stats) {
+        console.log(`📊 Stats: ${stats.usersCount} users, ${stats.totalMessages} messages`);
+    }
 }
 
 initialize();
@@ -304,9 +312,7 @@ module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
+    if (req.method === 'OPTIONS') return res.status(200).end();
     
     if (req.method === 'GET') {
         return res.status(200).json({ 
@@ -321,7 +327,6 @@ module.exports = async (req, res) => {
     }
     
     console.log(`📩 [${INSTANCE.name}] Webhook received:`, new Date().toISOString());
-    console.log(`🔍 Full webhook data:`, JSON.stringify(req.body, null, 2));
     
     const data = req.body;
     let rawChatId = null;
@@ -332,112 +337,95 @@ module.exports = async (req, res) => {
         rawChatId = data.payload.from;
         message = data.payload.body;
         isFromMe = data.payload.fromMe || false;
-    }
-    
-    if (!rawChatId && data.from) {
-        rawChatId = data.from;
-        message = data.body || data.text;
-        isFromMe = data.fromMe || false;
+        
+        // كشف رسائل المسؤول
+        if (!isFromMe && rawChatId) {
+            let senderPhone = rawChatId.toString();
+            senderPhone = senderPhone.replace('@c.us', '').replace('@lid', '').replace(/[^0-9]/g, '');
+            if (senderPhone.startsWith('0')) senderPhone = senderPhone.substring(1);
+            if (senderPhone === ADMIN_PHONE) {
+                isFromMe = true;
+                console.log(`✅ Admin detected: ${senderPhone}`);
+            }
+        }
     }
     
     if (!rawChatId || !message) {
-        console.log(`⚠️ [${INSTANCE.name}] Missing chat_id or message`);
+        console.log(`⚠️ Missing chat_id or message`);
         return res.status(200).json({ received: true, error: 'Missing data' });
     }
     
-    console.log(`📱 [${INSTANCE.name}] From: ${rawChatId}`);
-    console.log(`💬 [${INSTANCE.name}] Message: ${message}`);
-    console.log(`👤 [${INSTANCE.name}] Is from me: ${isFromMe}`);
-    
-    // 🔥 الأهم: استخدم الرقم الأصلي كما هو من webhook (مع @lid أو @c.us)
     let chatId = rawChatId;
     if (!chatId.includes('@')) {
         chatId = `${chatId}@c.us`;
     }
     
-    // استخراج رقم نظيف للتخزين في Firebase
     let cleanNumber = rawChatId.toString();
-    cleanNumber = cleanNumber.replace('@c.us', '');
-    cleanNumber = cleanNumber.replace('@lid', '');
-    cleanNumber = cleanNumber.replace('+', '');
-    cleanNumber = cleanNumber.replace(/[^0-9]/g, '');
+    cleanNumber = cleanNumber.replace('@c.us', '').replace('@lid', '').replace(/[^0-9]/g, '');
     if (cleanNumber.startsWith('0')) cleanNumber = cleanNumber.substring(1);
     
-    // 🔥🔥🔥 HUMAN MODE SYSTEM WITH FIREBASE 🔥🔥🔥
+    console.log(`📱 From: ${rawChatId}`);
+    console.log(`💬 Message: ${message}`);
+    console.log(`👤 Is admin: ${isFromMe}`);
     
-    // 1. إذا أنا اللي رديت على العميل
+    // 🔥🔥🔥 NEW: حفظ كل الرسائل الواردة 🔥🔥🔥
+    await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
+    
+    // HUMAN MODE SYSTEM
     if (isFromMe) {
         await saveUserState(INSTANCE_ID, cleanNumber, "human");
         await setAutoTimeout(cleanNumber);
-        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanNumber} -> HUMAN mode (I replied)`);
-        return res.status(200).json({ success: true, mode: "human", storage: "Firebase" });
+        console.log(`👨‍💼 BOT STOPPED for user ${cleanNumber} (admin replied)`);
+        return res.status(200).json({ success: true, mode: "human" });
     }
     
-    // استرجاع حالة العميل من Firebase
     const currentMode = await getUserState(INSTANCE_ID, cleanNumber);
     
-    // 2. إذا العميل في وضع human (البوت يسكت)
     if (currentMode === "human") {
-        console.log(`🤫 [${INSTANCE.name}] Human mode active for ${cleanNumber}, bot silent`);
+        console.log(`🤫 Human mode active, bot silent`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    // 3. طلب خدمة العملاء (الرقم 6)
-    const isCustomerServiceRequest = (
-        message.trim() === '6' || 
-        message.trim() === '٦' ||
-        message.toLowerCase().includes('خدمة العملاء') ||
-        message.toLowerCase().includes('خدمه العملاء') ||
-        message.toLowerCase().includes('customer service') ||
-        message.toLowerCase().includes('support') ||
-        message.toLowerCase().includes('agent') ||
-        message.toLowerCase().includes('human') ||
-        message.toLowerCase().includes('موظف')
-    );
-    
-    if (isCustomerServiceRequest) {
+    if (message.trim() === '6' || message.includes('خدمة العملاء') || message.includes('customer service')) {
         await saveUserState(INSTANCE_ID, cleanNumber, "human");
         await setAutoTimeout(cleanNumber);
-        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanNumber} -> HUMAN mode (requested support)`);
+        console.log(`👨‍💼 User requested human support - BOT STOPPED`);
         
         const autoReply = findAutoReply(message);
         if (autoReply) {
-            await sendWhatsAppMessage(chatId, autoReply);
+            const result = await sendWhatsAppMessage(chatId, autoReply);
+            // 🔥 حفظ الرد في المحادثات أيضاً
+            if (result.success) {
+                await saveMessage(INSTANCE_ID, cleanNumber, autoReply, true);
+            }
         }
         return res.status(200).json({ success: true, mode: "human" });
     }
     
-    // 4. طلب العودة للقائمة (menu)
-    const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
-    if (isMenuRequest && currentMode === "human") {
-        if (timeouts[cleanNumber]) {
-            clearTimeout(timeouts[cleanNumber]);
-            delete timeouts[cleanNumber];
+    if (message.includes('قائمة') || message.toLowerCase().includes('menu')) {
+        if (currentMode === "human") {
+            if (timeouts[cleanNumber]) {
+                clearTimeout(timeouts[cleanNumber]);
+                delete timeouts[cleanNumber];
+            }
+            await deleteUserState(INSTANCE_ID, cleanNumber);
+            console.log(`🤖 BOT REACTIVATED (requested menu)`);
         }
-        await deleteUserState(INSTANCE_ID, cleanNumber);
-        console.log(`🤖 [${INSTANCE.name}] User ${cleanNumber} -> BOT mode (requested menu)`);
     }
     
-    // البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
-        console.log(`🤖 [${INSTANCE.name}] Sending auto-reply...`);
         const result = await sendWhatsAppMessage(chatId, autoReply);
         
-        return res.status(200).json({ 
-            success: result.success,
-            replied: true,
-            from_instance: INSTANCE.name,
-            storage: "Firebase",
-            result: result
-        });
+        // 🔥🔥🔥 حفظ الرد في Firebase 🔥🔥🔥
+        if (result.success) {
+            await saveMessage(INSTANCE_ID, cleanNumber, autoReply, true);
+        }
+        
+        return res.status(200).json({ success: result.success, replied: true });
     } else {
-        console.log(`⚠️ [${INSTANCE.name}] No auto-reply found for: "${message}"`);
-        return res.status(200).json({ 
-            success: true,
-            replied: false,
-            reason: 'No matching rule found'
-        });
+        console.log(`⚠️ No auto-reply found for: "${message}"`);
+        return res.status(200).json({ success: true, replied: false });
     }
 };
