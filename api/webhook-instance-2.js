@@ -1,6 +1,4 @@
 const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
 
 // ==================== COMPANY DATA ====================
 const companyData = {
@@ -49,140 +47,48 @@ const companyData = {
 };
 
 // ==================== USER STATE MANAGEMENT ====================
+// ⚠️ تنبيه: الحالات تخزن في RAM فقط، وستفقد عند إعادة تشغيل السيرفر
+// للحل الاحترافي: استخدم Redis أو Firebase أو Upstash
+
 // حالتين لكل عميل:
 // 🤖 "bot" - البوت يرد تلقائياً (الوضع الافتراضي)
 // 👨‍💼 "human" - البوت ساكت، أنت ترد
 const userState = {};
 
-// 🔥 تخزين الـ timeouts في memory فقط (ليس في JSON)
+// 🔥 تخزين الـ timeouts
 const timeouts = {};
 
-// 🔥 ملف لحفظ الحالات بشكل دائم (حتى بعد إعادة التشغيل)
-const STATE_FILE = path.join(__dirname, '..', 'data', 'user-states-instance2.json');
-const DATA_DIR = path.join(__dirname, '..', 'data');
-
-// التأكد من وجود مجلد data
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-// تحميل الحالات المحفوظة عند بدء التشغيل
-function loadUserStates() {
-    try {
-        if (fs.existsSync(STATE_FILE)) {
-            const data = fs.readFileSync(STATE_FILE, 'utf8');
-            const saved = JSON.parse(data);
-            
-            // 🔥 التحقق من الـ timestamp عند التحميل
-            const now = Date.now();
-            const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 دقيقة
-            let expiredCount = 0;
-            
-            Object.keys(saved).forEach(phone => {
-                const user = saved[phone];
-                
-                // إذا كان في وضع human وعدى عليه أكثر من 30 دقيقة
-                if (user.mode === "human" && user.timestamp) {
-                    const elapsed = now - user.timestamp;
-                    if (elapsed >= TIMEOUT_DURATION) {
-                        // انتهت المدة - لا نضيفه للحالات النشطة
-                        console.log(`⏰ User ${phone} expired (${Math.floor(elapsed / 60000)} minutes ago), skipping`);
-                        expiredCount++;
-                        return;
-                    }
-                }
-                
-                // إضافة المستخدم للحالات النشطة
-                userState[phone] = user;
-            });
-            
-            console.log(`📂 Loaded ${Object.keys(userState).length} active user states from file (${expiredCount} expired skipped)`);
-            
-            // 🔥 إعادة إنشاء الـ timeouts للمستخدمين النشطين
-            Object.keys(userState).forEach(phone => {
-                if (userState[phone].mode === "human") {
-                    const remainingTime = TIMEOUT_DURATION - (now - userState[phone].timestamp);
-                    if (remainingTime > 0) {
-                        setAutoTimeout(phone, remainingTime);
-                        console.log(`⏱️ Restored timeout for ${phone} with ${Math.floor(remainingTime / 60000)} minutes remaining`);
-                    } else {
-                        // انتهت المدة - نرجعهم للـ bot
-                        delete userState[phone];
-                        console.log(`🤖 User ${phone} auto-switched to BOT mode after restart (timeout expired)`);
-                    }
-                }
-            });
-            
-            saveUserStates(); // حفظ الحالات بعد التنظيف
-        }
-    } catch (error) {
-        console.error('Error loading user states:', error);
-    }
-}
-
-// حفظ الحالات في ملف (بدون timeouts)
-function saveUserStates() {
-    try {
-        // نقوم بنسخة من userState بدون الـ timeouts
-        const toSave = {};
-        Object.keys(userState).forEach(phone => {
-            toSave[phone] = {
-                mode: userState[phone].mode,
-                timestamp: userState[phone].timestamp
-            };
-        });
-        fs.writeFileSync(STATE_FILE, JSON.stringify(toSave, null, 2));
-        console.log(`💾 Saved ${Object.keys(toSave).length} user states to file for instance 2`);
-    } catch (error) {
-        console.error('Error saving user states:', error);
-    }
-}
-
-// 🔥 Auto timeout محسن - timeouts في memory فقط
+// 🔥 Auto timeout - لو أنت نسيت العميل، يرجع تلقائياً للبوت بعد 30 دقيقة
 const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 دقيقة
 
-function setAutoTimeout(phone, customDuration = null) {
-    // مسح أي timeout موجود لهذا الرقم
+function setAutoTimeout(phone) {
     if (timeouts[phone]) {
         clearTimeout(timeouts[phone]);
         delete timeouts[phone];
     }
     
-    const duration = customDuration || TIMEOUT_DURATION;
-    
     timeouts[phone] = setTimeout(() => {
         if (userState[phone] && userState[phone].mode === "human") {
             delete userState[phone];
             delete timeouts[phone];
-            saveUserStates();
-            console.log(`🤖 Auto timeout: User ${phone} switched back to BOT mode after ${Math.floor(duration / 60000)} minutes`);
+            console.log(`🤖 Auto timeout: User ${phone} switched back to BOT mode after 30 minutes`);
         }
-    }, duration);
-    
-    console.log(`⏱️ Timeout set for ${phone}: ${Math.floor(duration / 60000)} minutes`);
+    }, TIMEOUT_DURATION);
 }
 
-// تحديث timestamp المستخدم
 function updateUserTimestamp(phone) {
-    if (userState[phone]) {
-        userState[phone].timestamp = Date.now();
-        saveUserStates();
-        
-        // إعادة تعيين الـ timeout
-        if (userState[phone].mode === "human") {
-            setAutoTimeout(phone);
-        }
+    if (userState[phone] && userState[phone].mode === "human") {
+        setAutoTimeout(phone);
     }
 }
 
-// تحميل الحالات عند بدء التشغيل
-loadUserStates();
-
 // Instance Configuration
+// فقط غير الـ INSTANCE:
+
 const INSTANCE = {
     id: "instance3537",
     token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
-    name: "201119383101",
+    name: "الرقم الثاني - النمر للشحن",
     active: true
 };
 
@@ -369,13 +275,11 @@ module.exports = async (req, res) => {
             instance: INSTANCE.name,
             instance_id: INSTANCE.id,
             activeUsers: Object.keys(userState).length,
-            users: userState,
-            activeTimeouts: Object.keys(timeouts).length,
             timestamp: new Date().toISOString() 
         });
     }
     
-    console.log('📩 Webhook received for instance 2:', new Date().toISOString());
+console.log('📩 Webhook received for instance 2:', new Date().toISOString());
     
     const data = req.body;
     let rawPhone = null;
@@ -388,7 +292,14 @@ module.exports = async (req, res) => {
         isFromMe = data.payload.fromMe || false;
     }
     
+    if (!rawPhone && data.from) {
+        rawPhone = data.from;
+        message = data.body || data.text;
+        isFromMe = data.fromMe || false;
+    }
+    
     if (!rawPhone || !message) {
+        console.log('⚠️ Missing phone or message');
         return res.status(200).json({ received: true, error: 'Missing data' });
     }
     
@@ -399,43 +310,21 @@ module.exports = async (req, res) => {
     console.log(`💬 Message: ${message}`);
     console.log(`👤 Is from me: ${isFromMe}`);
     
-    // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM - IMPROVED VERSION 🔥🔥🔥
+    // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM 🔥🔥🔥
     
     // الحالة 1: أنا اللي برد على العميل (fromMe = true)
     if (isFromMe) {
-        // التحقق من الحالة الحالية
-        const currentMode = userState[cleanPhone]?.mode || "bot";
-        
-        // تحويل العميل إلى وضع human
-        userState[cleanPhone] = { 
-            mode: "human",
-            timestamp: Date.now()
-        };
+        userState[cleanPhone] = { mode: "human", timestamp: Date.now() };
         setAutoTimeout(cleanPhone);
-        saveUserStates();
-        
-        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (I replied from ${currentMode})`);
-        
-        return res.status(200).json({ 
-            success: true, 
-            mode: "human",
-            instance: INSTANCE.name,
-            message: "You replied to user, bot disabled for 30 minutes"
-        });
+        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (I replied)`);
+        return res.status(200).json({ success: true, mode: "human" });
     }
     
     // الحالة 2: العميل في وضع human (البوت يسكت خالص)
     if (userState[cleanPhone]?.mode === "human") {
-        // تحديث timestamp عند استلام رسالة من العميل في وضع human
         updateUserTimestamp(cleanPhone);
-        
         console.log(`🤫 [${INSTANCE.name}] Human mode active for ${cleanPhone}, bot silent`);
-        return res.status(200).json({ 
-            success: true, 
-            mode: "human",
-            instance: INSTANCE.name,
-            message: "Bot is silent, waiting for human response"
-        });
+        return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
     // 🔥 التحقق من طلب تحويل لخدمة العملاء (الرقم 6)
@@ -452,39 +341,25 @@ module.exports = async (req, res) => {
     );
     
     if (isCustomerServiceRequest) {
-        userState[cleanPhone] = { 
-            mode: "human",
-            timestamp: Date.now()
-        };
+        userState[cleanPhone] = { mode: "human", timestamp: Date.now() };
         setAutoTimeout(cleanPhone);
-        saveUserStates();
-        
         console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (requested via 6)`);
         
-        // إرسال رسالة تأكيد التحويل
         const autoReply = findAutoReply(message);
         if (autoReply) {
             await sendWhatsAppMessage(cleanPhone, autoReply);
         }
-        
-        return res.status(200).json({ 
-            success: true, 
-            mode: "human",
-            instance: INSTANCE.name,
-            message: "Customer service mode activated"
-        });
+        return res.status(200).json({ success: true, mode: "human" });
     }
     
     // 🔥 التحقق من طلب العودة للبوت (قائمة أو menu)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
     if (isMenuRequest && userState[cleanPhone]?.mode === "human") {
-        // مسح الـ timeout
         if (timeouts[cleanPhone]) {
             clearTimeout(timeouts[cleanPhone]);
             delete timeouts[cleanPhone];
         }
         delete userState[cleanPhone];
-        saveUserStates();
         console.log(`🤖 [${INSTANCE.name}] User ${cleanPhone} switched back to BOT mode (requested menu)`);
     }
     
@@ -494,23 +369,9 @@ module.exports = async (req, res) => {
     if (autoReply) {
         console.log(`🤖 [${INSTANCE.name}] Auto-reply sent to ${cleanPhone}`);
         const result = await sendWhatsAppMessage(cleanPhone, autoReply);
-        
-        // ✅ لا نغير الحالة هنا - العميل يبقى في وضعه الحالي (bot)
-        
-        return res.status(200).json({ 
-            success: result.success,
-            replied: true,
-            mode: userState[cleanPhone]?.mode || "bot",
-            instance: INSTANCE.name
-        });
+        return res.status(200).json({ success: result.success, replied: true });
     } else {
         console.log(`⚠️ No auto-reply found for: ${message}`);
-        return res.status(200).json({ 
-            success: true, 
-            replied: false,
-            reason: 'No matching rule found',
-            mode: userState[cleanPhone]?.mode || "bot",
-            instance: INSTANCE.name
-        });
+        return res.status(200).json({ success: true, replied: false });
     }
 };
