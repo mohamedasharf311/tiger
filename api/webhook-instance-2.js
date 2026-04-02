@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { saveUserState, getUserState, deleteUserState, cleanupExpiredUsers } = require('./firebase-config');
 
 // ==================== COMPANY DATA ====================
 const companyData = {
@@ -46,17 +47,35 @@ const companyData = {
     ]
 };
 
-// ==================== USER STATE (في الذاكرة فقط) ====================
-const userState = {};
-
 // ==================== INSTANCE CONFIGURATION ====================
+const INSTANCE_ID = "instance3537";
 const INSTANCE = {
-    id: "instance3537",
+    id: INSTANCE_ID,
     token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
     name: "الرقم الثاني - النمر للشحن",
     phoneNumber: "201553999936",
     active: true
 };
+
+// ==================== CACHE للـ timeouts (في الذاكرة فقط) ====================
+const timeouts = {};
+const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 دقيقة
+
+async function setAutoTimeout(phone) {
+    if (timeouts[phone]) {
+        clearTimeout(timeouts[phone]);
+        delete timeouts[phone];
+    }
+    
+    timeouts[phone] = setTimeout(async () => {
+        const currentMode = await getUserState(INSTANCE_ID, phone);
+        if (currentMode === "human") {
+            await deleteUserState(INSTANCE_ID, phone);
+            delete timeouts[phone];
+            console.log(`🤖 Auto timeout: User ${phone} switched back to BOT mode after 30 minutes`);
+        }
+    }, TIMEOUT_DURATION);
+}
 
 // ==================== AUTO REPLY RULES ====================
 let autoRules = [
@@ -271,6 +290,14 @@ async function sendWhatsAppMessage(chat_id, message) {
     }
 }
 
+// تنظيف عند بدء التشغيل
+async function initialize() {
+    console.log(`🚀 Initializing ${INSTANCE.name} with Firebase...`);
+    await cleanupExpiredUsers(INSTANCE_ID);
+}
+
+initialize();
+
 // ==================== WEBHOOK HANDLER ====================
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -287,8 +314,8 @@ module.exports = async (req, res) => {
             instance: INSTANCE.name,
             instance_id: INSTANCE.id,
             phone: INSTANCE.phoneNumber,
-            activeUsers: Object.keys(userState).length,
-            message: 'Webhook is working!',
+            storage: 'Firebase',
+            message: 'Webhook is working with Firebase!',
             timestamp: new Date().toISOString()
         });
     }
@@ -328,7 +355,7 @@ module.exports = async (req, res) => {
         chatId = `${chatId}@c.us`;
     }
     
-    // استخراج رقم نظيف للتخزين في userState
+    // استخراج رقم نظيف للتخزين في Firebase
     let cleanNumber = rawChatId.toString();
     cleanNumber = cleanNumber.replace('@c.us', '');
     cleanNumber = cleanNumber.replace('@lid', '');
@@ -336,17 +363,21 @@ module.exports = async (req, res) => {
     cleanNumber = cleanNumber.replace(/[^0-9]/g, '');
     if (cleanNumber.startsWith('0')) cleanNumber = cleanNumber.substring(1);
     
-    // 🔥🔥🔥 HUMAN MODE SYSTEM 🔥🔥🔥
+    // 🔥🔥🔥 HUMAN MODE SYSTEM WITH FIREBASE 🔥🔥🔥
     
     // 1. إذا أنا اللي رديت على العميل
     if (isFromMe) {
-        userState[cleanNumber] = "human";
+        await saveUserState(INSTANCE_ID, cleanNumber, "human");
+        await setAutoTimeout(cleanNumber);
         console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanNumber} -> HUMAN mode (I replied)`);
-        return res.status(200).json({ success: true, mode: "human" });
+        return res.status(200).json({ success: true, mode: "human", storage: "Firebase" });
     }
     
+    // استرجاع حالة العميل من Firebase
+    const currentMode = await getUserState(INSTANCE_ID, cleanNumber);
+    
     // 2. إذا العميل في وضع human (البوت يسكت)
-    if (userState[cleanNumber] === "human") {
+    if (currentMode === "human") {
         console.log(`🤫 [${INSTANCE.name}] Human mode active for ${cleanNumber}, bot silent`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
@@ -365,7 +396,8 @@ module.exports = async (req, res) => {
     );
     
     if (isCustomerServiceRequest) {
-        userState[cleanNumber] = "human";
+        await saveUserState(INSTANCE_ID, cleanNumber, "human");
+        await setAutoTimeout(cleanNumber);
         console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanNumber} -> HUMAN mode (requested support)`);
         
         const autoReply = findAutoReply(message);
@@ -377,8 +409,12 @@ module.exports = async (req, res) => {
     
     // 4. طلب العودة للقائمة (menu)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
-    if (isMenuRequest && userState[cleanNumber] === "human") {
-        delete userState[cleanNumber];
+    if (isMenuRequest && currentMode === "human") {
+        if (timeouts[cleanNumber]) {
+            clearTimeout(timeouts[cleanNumber]);
+            delete timeouts[cleanNumber];
+        }
+        await deleteUserState(INSTANCE_ID, cleanNumber);
         console.log(`🤖 [${INSTANCE.name}] User ${cleanNumber} -> BOT mode (requested menu)`);
     }
     
@@ -393,6 +429,7 @@ module.exports = async (req, res) => {
             success: result.success,
             replied: true,
             from_instance: INSTANCE.name,
+            storage: "Firebase",
             result: result
         });
     } else {
