@@ -15,14 +15,23 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
+let database = null;
 
-console.log('🔥 Firebase initialized successfully');
+try {
+  const app = initializeApp(firebaseConfig);
+  database = getDatabase(app);
+  console.log('🔥 Firebase initialized successfully');
+} catch (error) {
+  console.error('❌ Firebase initialization error:', error.message);
+}
 
 // حفظ حالة مستخدم
 async function saveUserState(instanceId, phone, state) {
     try {
+        if (!database) {
+            console.log('⚠️ Firebase not available, using memory only');
+            return false;
+        }
         const userRef = ref(database, `userStates/${instanceId}/${phone}`);
         await set(userRef, {
             mode: state.mode,
@@ -32,7 +41,7 @@ async function saveUserState(instanceId, phone, state) {
         console.log(`💾 Firebase: Saved state for ${phone} in ${instanceId}`);
         return true;
     } catch (error) {
-        console.error('❌ Firebase save error:', error);
+        console.error('❌ Firebase save error:', error.message);
         return false;
     }
 }
@@ -40,6 +49,7 @@ async function saveUserState(instanceId, phone, state) {
 // استرجاع حالة مستخدم
 async function getUserState(instanceId, phone) {
     try {
+        if (!database) return null;
         const userRef = ref(database, `userStates/${instanceId}/${phone}`);
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
@@ -48,7 +58,7 @@ async function getUserState(instanceId, phone) {
         }
         return null;
     } catch (error) {
-        console.error('❌ Firebase load error:', error);
+        console.error('❌ Firebase load error:', error.message);
         return null;
     }
 }
@@ -56,12 +66,13 @@ async function getUserState(instanceId, phone) {
 // حذف حالة مستخدم
 async function deleteUserState(instanceId, phone) {
     try {
+        if (!database) return false;
         const userRef = ref(database, `userStates/${instanceId}/${phone}`);
         await remove(userRef);
         console.log(`🗑️ Firebase: Deleted state for ${phone} in ${instanceId}`);
         return true;
     } catch (error) {
-        console.error('❌ Firebase delete error:', error);
+        console.error('❌ Firebase delete error:', error.message);
         return false;
     }
 }
@@ -69,32 +80,30 @@ async function deleteUserState(instanceId, phone) {
 // استرجاع جميع المستخدمين في وضع human
 async function getAllHumanUsers(instanceId) {
     try {
+        if (!database) return {};
         const usersRef = ref(database, `userStates/${instanceId}`);
         const snapshot = await get(usersRef);
         if (snapshot.exists()) {
             const users = snapshot.val();
             const now = Date.now();
-            const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 دقيقة
+            const TIMEOUT_DURATION = 30 * 60 * 1000;
             const activeUsers = {};
             
-            Object.keys(users).forEach(phone => {
-                const user = users[phone];
+            for (const [phone, user] of Object.entries(users)) {
                 if (user.mode === "human") {
                     const elapsed = now - user.timestamp;
                     if (elapsed < TIMEOUT_DURATION) {
                         activeUsers[phone] = user;
                     } else {
-                        // حذف المستخدمين المنتهيين
-                        deleteUserState(instanceId, phone);
+                        await deleteUserState(instanceId, phone);
                     }
                 }
-            });
-            
+            }
             return activeUsers;
         }
         return {};
     } catch (error) {
-        console.error('❌ Firebase load users error:', error);
+        console.error('❌ Firebase load users error:', error.message);
         return {};
     }
 }
@@ -102,6 +111,7 @@ async function getAllHumanUsers(instanceId) {
 // تنظيف المستخدمين المنتهيين
 async function cleanupExpiredUsers(instanceId) {
     try {
+        if (!database) return;
         const usersRef = ref(database, `userStates/${instanceId}`);
         const snapshot = await get(usersRef);
         if (snapshot.exists()) {
@@ -125,7 +135,7 @@ async function cleanupExpiredUsers(instanceId) {
             }
         }
     } catch (error) {
-        console.error('❌ Firebase cleanup error:', error);
+        console.error('❌ Firebase cleanup error:', error.message);
     }
 }
 
