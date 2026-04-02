@@ -1,5 +1,4 @@
 const axios = require('axios');
-const { saveUserState, getUserState, deleteUserState, cleanupExpiredUsers } = require('./firebase-config');
 
 // ==================== COMPANY DATA ====================
 const companyData = {
@@ -47,100 +46,17 @@ const companyData = {
     ]
 };
 
-// ==================== USER STATE MANAGEMENT ====================
-const timeouts = {};
+// ==================== USER STATE (في الذاكرة فقط) ====================
+const userState = {};
 
-// Instance Configuration
-const INSTANCE_ID = "instance3532";
+// ==================== INSTANCE CONFIGURATION ====================
 const INSTANCE = {
-    id: INSTANCE_ID,
+    id: "instance3554",  // 🔥 استخدم الـ instance الصحيح
     token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
     name: "الرقم الأول - النمر للشحن",
+    phoneNumber: "201553999935",
     active: true
 };
-
-const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 دقيقة
-
-async function setAutoTimeout(phone) {
-    if (timeouts[phone]) {
-        clearTimeout(timeouts[phone]);
-        delete timeouts[phone];
-    }
-    
-    timeouts[phone] = setTimeout(async () => {
-        const userState = await getUserState(INSTANCE_ID, phone);
-        if (userState && userState.mode === "human") {
-            await deleteUserState(INSTANCE_ID, phone);
-            delete timeouts[phone];
-            console.log(`🤖 Auto timeout: User ${phone} switched back to BOT mode after 30 minutes`);
-        }
-    }, TIMEOUT_DURATION);
-}
-
-async function updateUserTimestamp(phone) {
-    const userState = await getUserState(INSTANCE_ID, phone);
-    if (userState && userState.mode === "human") {
-        await saveUserState(INSTANCE_ID, phone, {
-            mode: "human",
-            timestamp: Date.now()
-        });
-        await setAutoTimeout(phone);
-    }
-}
-
-async function initialize() {
-    console.log(`🚀 Initializing ${INSTANCE.name} with Firebase...`);
-    await cleanupExpiredUsers(INSTANCE_ID);
-}
-
-initialize();
-
-// ==================== HELPER FUNCTIONS ====================
-
-// دالة لاستخراج رقم الهاتف الحقيقي من LID
-function extractRealPhoneNumber(rawPhone, payload) {
-    let cleanPhone = rawPhone;
-    
-    if (rawPhone && rawPhone.includes('@lid')) {
-        console.log(`⚠️ Received LID: ${rawPhone}`);
-        
-        if (payload && payload.participant && !payload.participant.includes('@lid')) {
-            cleanPhone = payload.participant;
-            console.log(`✅ Found participant: ${cleanPhone}`);
-        }
-        else if (payload && payload.author && !payload.author.includes('@lid')) {
-            cleanPhone = payload.author;
-            console.log(`✅ Found author: ${cleanPhone}`);
-        }
-        else if (payload && payload.to && !payload.to.includes('@lid')) {
-            cleanPhone = payload.to;
-            console.log(`✅ Found to: ${cleanPhone}`);
-        }
-    }
-    
-    return cleanPhone;
-}
-
-// دالة للتحقق من صحة الرقم
-function isValidPhoneNumber(phone) {
-    if (!phone) return false;
-    
-    let cleanPhone = phone.toString();
-    cleanPhone = cleanPhone.replace('@c.us', '');
-    cleanPhone = cleanPhone.replace('@lid', '');
-    cleanPhone = cleanPhone.replace('+', '');
-    cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
-    
-    if (cleanPhone.length < 9) return false;
-    
-    // الأرقام التي تبدأ بـ 222 أو 333 هي أرقام تجريبية
-    if (cleanPhone.startsWith('222') || cleanPhone.startsWith('333')) {
-        console.log(`⚠️ Test/simulated number detected: ${cleanPhone}`);
-        return false;
-    }
-    
-    return true;
-}
 
 // ==================== AUTO REPLY RULES ====================
 let autoRules = [
@@ -152,7 +68,7 @@ let autoRules = [
     },
     {
         id: 1,
-        keywords: ['1', '١', 'داخل الاسكندرية', 'داخل الإسكندرية', 'اسكندرية', 'الإسكندرية', 'اسعار اسكندرية', 'اسعار داخل', 'سعر', 'price', 'alexandria'],
+        keywords: ['1', '١', 'داخل الاسكندرية', 'داخل الإسكندرية', 'اسكندرية', 'الإسكندرية', 'اسعار اسكندرية', 'اسعار داخل', 'سعر', 'الثمن', 'كم سعر', 'بكام', 'price', 'alexandria', 'inside alexandria', 'cost', 'how much'],
         reply: `📍 أسعار الشحن داخل الإسكندرية / Alexandria Shipping Prices:
 
 💰 60 جنيه / EGP:
@@ -175,7 +91,7 @@ ${companyData.shippingPrices.alexandria["90 جنيه"].join(' - ')}
     },
     {
         id: 2,
-        keywords: ['2', '٢', 'خارج الاسكندرية', 'خارج الإسكندرية', 'خارج', 'اسعار خارج', 'القاهرة', 'بورسعيد', 'الإسماعيلية', 'الفيوم', 'قنا', 'سوهاج', 'outside alexandria', 'cairo'],
+        keywords: ['2', '٢', 'خارج الاسكندرية', 'خارج الإسكندرية', 'خارج', 'اسعار خارج', 'القاهرة', 'بورسعيد', 'الإسماعيلية', 'الفيوم', 'قنا', 'سوهاج', 'outside alexandria', 'cairo', 'portsaid', 'ismailia', 'outside', 'other cities'],
         reply: `📍 أسعار الشحن خارج الإسكندرية / Outside Alexandria Shipping Prices:
 
 💰 100 جنيه / EGP:
@@ -269,7 +185,7 @@ We are always at your service. If you need any further assistance, just type 'me
     },
     {
         id: 10,
-        keywords: ['عايز استفسر', 'عندي سؤال', 'ممكن اسأل', 'محتاج اعرف', 'عايز اعرف', 'عندكم', 'هل يوجد', 'متوفر', 'التفاصيل', 'ايه المميزات', 'بيشتغل ازاي', 'ينفع ل', 'مناسب ليا', 'الفرق بين', 'ضمان كام', 'الجودة', 'فيه صور', 'ابعت تفاصيل', 'inquiry', 'question', 'information', 'details', 'what is', 'how to', 'tell me', 'i need to know', 'about', 'services'],
+        keywords: ['عايز استفسر', 'عندي سؤال', 'ممكن اسأل', 'محتاج اعرف', 'عايز اعرف', 'عندكم', 'هل يوجد', 'متوفر', 'التفاصيل', 'ايه المميزات', 'بيشتغل ازاي', 'inquiry', 'question', 'information', 'details', 'what is', 'how to', 'tell me', 'i need to know', 'about', 'services'],
         reply: `📋 للاستفسار عن خدمات النمر للشحن / For inquiries about ELNMR Shipping services:
 
 لدينا الخدمات التالية / We offer:
@@ -291,45 +207,62 @@ We are always at your service. If you need any further assistance, just type 'me
     }
 ];
 
+// ==================== HELPER FUNCTIONS ====================
 function findAutoReply(message) {
     if (!message) return null;
     const lowerMsg = message.toLowerCase().trim();
     
+    console.log(`🔍 [${INSTANCE.name}] Searching for reply to: "${lowerMsg}"`);
+    
+    const numberMap = {
+        '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
+        '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6
+    };
+    
+    if (numberMap[lowerMsg] !== undefined) {
+        const number = numberMap[lowerMsg];
+        for (let rule of autoRules) {
+            if (!rule.active) continue;
+            for (let keyword of rule.keywords) {
+                if (keyword === number.toString() || 
+                    (keyword === '1' && number === 1) ||
+                    (keyword === '2' && number === 2) ||
+                    (keyword === '3' && number === 3) ||
+                    (keyword === '4' && number === 4) ||
+                    (keyword === '5' && number === 5) ||
+                    (keyword === '6' && number === 6)) {
+                    console.log(`✅ [${INSTANCE.name}] Number match: ${number}`);
+                    return rule.reply;
+                }
+            }
+        }
+    }
+    
     for (let rule of autoRules) {
         if (!rule.active) continue;
         for (let keyword of rule.keywords) {
-            if (lowerMsg === keyword.toLowerCase() || lowerMsg.includes(keyword.toLowerCase())) {
-                console.log(`✅ Found rule: ${rule.id} - Keyword: ${keyword}`);
+            const keywordLower = keyword.toLowerCase();
+            if (lowerMsg === keywordLower || lowerMsg.includes(keywordLower)) {
+                console.log(`✅ [${INSTANCE.name}] Match found: ${keyword}`);
                 return rule.reply;
             }
         }
     }
+    
     return null;
 }
 
-// 🔥🔥🔥 الدالة المعدلة - المشكلة كانت هنا 🔥🔥🔥
-async function sendWhatsAppMessage(chatId, message) {
+async function sendWhatsAppMessage(chat_id, message) {
     try {
-        // 🔥 الأهم: استخدم chat_id كما هو من webhook (مع @lid أو @c.us)
-        let targetChatId = chatId;
-        
-        // إذا كان chat_id لا يحتوي على @lid أو @c.us، أضف @c.us
-        if (!targetChatId.includes('@lid') && !targetChatId.includes('@c.us')) {
-            let cleanPhone = targetChatId.toString();
-            cleanPhone = cleanPhone.replace('+', '');
-            cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
-            if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
-            targetChatId = `${cleanPhone}@c.us`;
-        }
-        
-        console.log(`📤 [${INSTANCE.name}] Sending to: ${targetChatId}`);
-        console.log(`📤 Message: ${message.substring(0, 100)}...`);
+        console.log(`📤 [${INSTANCE.name}] Sending to: ${chat_id}`);
+        console.log(`📤 Message preview: ${message.substring(0, 100)}...`);
         
         const response = await axios.post(
             `https://api.wapilot.net/api/v2/${INSTANCE.id}/send-message`,
-            { chat_id: targetChatId, text: message },
+            { chat_id, text: message },
             { headers: { "token": INSTANCE.token, "Content-Type": "application/json" } }
         );
+        
         console.log(`✅ [${INSTANCE.name}] Sent successfully`);
         return { success: true, data: response.data };
     } catch (error) {
@@ -344,131 +277,120 @@ module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
     
     if (req.method === 'GET') {
         return res.status(200).json({ 
-            status: 'active', 
+            status: 'active',
             instance: INSTANCE.name,
             instance_id: INSTANCE.id,
-            storage: 'Firebase',
-            timestamp: new Date().toISOString() 
+            phone: INSTANCE.phoneNumber,
+            activeUsers: Object.keys(userState).length,
+            message: 'Webhook is working!',
+            timestamp: new Date().toISOString()
         });
     }
     
-    console.log('📩 Webhook received for instance 1:', new Date().toISOString());
-    console.log('📦 Raw body:', JSON.stringify(req.body, null, 2));
+    console.log(`📩 [${INSTANCE.name}] Webhook received:`, new Date().toISOString());
+    console.log(`🔍 Full webhook data:`, JSON.stringify(req.body, null, 2));
     
     const data = req.body;
     let rawChatId = null;
     let message = null;
     let isFromMe = false;
     
-    if (data.event === 'message' && data.payload) {
+    if (data.payload) {
         rawChatId = data.payload.from;
         message = data.payload.body;
         isFromMe = data.payload.fromMe || false;
-        
-        // محاولة استخراج رقم حقيقي من الـ payload إذا كان LID
-        const extractedPhone = extractRealPhoneNumber(rawChatId, data.payload);
-        if (extractedPhone && extractedPhone !== rawChatId) {
-            rawChatId = extractedPhone;
-        }
+    }
+    
+    if (!rawChatId && data.from) {
+        rawChatId = data.from;
+        message = data.body || data.text;
+        isFromMe = data.fromMe || false;
     }
     
     if (!rawChatId || !message) {
-        console.log('⚠️ Missing chat_id or message');
-        return res.status(200).json({ 
-            received: true, 
-            error: 'Missing chat_id or message',
-            receivedData: data
-        });
+        console.log(`⚠️ [${INSTANCE.name}] Missing chat_id or message`);
+        return res.status(200).json({ received: true, error: 'Missing data' });
     }
     
-    console.log(`📱 Original chat_id: ${rawChatId}`);
-    console.log(`💬 Message: "${message}"`);
-    console.log(`👤 Is from me: ${isFromMe}`);
+    console.log(`📱 [${INSTANCE.name}] From: ${rawChatId}`);
+    console.log(`💬 [${INSTANCE.name}] Message: ${message}`);
+    console.log(`👤 [${INSTANCE.name}] Is from me: ${isFromMe}`);
     
-    // 🔥 التحقق من LID - لا نمنعه، نرسل عليه كما هو
-    if (rawChatId.includes('@lid')) {
-        console.log(`⚠️ LID detected: ${rawChatId} - Will try to send to this exact ID`);
+    // استخدم الرقم الأصلي كما هو (مهم جداً لـ LID)
+    let chatId = rawChatId;
+    if (!chatId.includes('@')) {
+        chatId = `${chatId}@c.us`;
     }
     
-    // استخراج رقم نظيف للتخزين في Firebase (بدون @lid أو @c.us)
-    let cleanPhone = rawChatId.toString();
-    cleanPhone = cleanPhone.replace('@c.us', '');
-    cleanPhone = cleanPhone.replace('@lid', '');
-    cleanPhone = cleanPhone.replace('+', '');
-    cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
-    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+    // 🔥 HUMAN MODE SYSTEM (بسيط بدون Firebase)
+    // استخراج رقم نظيف للتخزين
+    let cleanNumber = rawChatId.toString();
+    cleanNumber = cleanNumber.replace('@c.us', '');
+    cleanNumber = cleanNumber.replace('@lid', '');
+    cleanNumber = cleanNumber.replace('+', '');
+    cleanNumber = cleanNumber.replace(/[^0-9]/g, '');
+    if (cleanNumber.startsWith('0')) cleanNumber = cleanNumber.substring(1);
     
-    // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM 🔥🔥🔥
-    
+    // 1. إذا أنا اللي رديت
     if (isFromMe) {
-        await saveUserState(INSTANCE_ID, cleanPhone, {
-            mode: "human",
-            timestamp: Date.now()
-        });
-        await setAutoTimeout(cleanPhone);
-        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (I replied)`);
+        userState[cleanNumber] = "human";
+        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanNumber} -> HUMAN mode (I replied)`);
         return res.status(200).json({ success: true, mode: "human" });
     }
     
-    const userState = await getUserState(INSTANCE_ID, cleanPhone);
-    
-    if (userState && userState.mode === "human") {
-        await updateUserTimestamp(cleanPhone);
-        console.log(`🤫 [${INSTANCE.name}] Human mode active for ${cleanPhone}, bot silent`);
+    // 2. إذا العميل في وضع human
+    if (userState[cleanNumber] === "human") {
+        console.log(`🤫 [${INSTANCE.name}] Human mode active, bot silent`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    const isCustomerServiceRequest = (
-        message.trim() === '6' || 
-        message.trim() === '٦' ||
-        message.toLowerCase().includes('خدمة العملاء') ||
-        message.toLowerCase().includes('خدمه العملاء') ||
+    // 3. طلب خدمة العملاء (الرقم 6)
+    if (message.trim() === '6' || message.trim() === '٦' || 
+        message.toLowerCase().includes('خدمة العملاء') || 
         message.toLowerCase().includes('customer service') ||
-        message.toLowerCase().includes('support') ||
-        message.toLowerCase().includes('agent') ||
-        message.toLowerCase().includes('human') ||
-        message.toLowerCase().includes('موظف')
-    );
-    
-    if (isCustomerServiceRequest) {
-        await saveUserState(INSTANCE_ID, cleanPhone, {
-            mode: "human",
-            timestamp: Date.now()
-        });
-        await setAutoTimeout(cleanPhone);
-        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (requested via 6)`);
-        
+        message.toLowerCase().includes('human')) {
+        userState[cleanNumber] = "human";
+        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanNumber} -> HUMAN mode (requested support)`);
         const autoReply = findAutoReply(message);
         if (autoReply) {
-            // 🔥 إرسال باستخدام rawChatId الأصلي (مع @lid أو @c.us)
-            await sendWhatsAppMessage(rawChatId, autoReply);
+            await sendWhatsAppMessage(chatId, autoReply);
         }
         return res.status(200).json({ success: true, mode: "human" });
     }
     
-    const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
-    if (isMenuRequest && userState && userState.mode === "human") {
-        if (timeouts[cleanPhone]) {
-            clearTimeout(timeouts[cleanPhone]);
-            delete timeouts[cleanPhone];
+    // 4. طلب العودة للقائمة (menu)
+    if (message.toLowerCase().includes('menu') || message.includes('قائمة')) {
+        if (userState[cleanNumber]) {
+            delete userState[cleanNumber];
+            console.log(`🤖 [${INSTANCE.name}] User ${cleanNumber} -> BOT mode (requested menu)`);
         }
-        await deleteUserState(INSTANCE_ID, cleanPhone);
-        console.log(`🤖 [${INSTANCE.name}] User ${cleanPhone} switched back to BOT mode (requested menu)`);
     }
     
+    // البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
-        console.log(`🤖 [${INSTANCE.name}] Auto-reply found, sending...`);
-        // 🔥 إرسال باستخدام rawChatId الأصلي (مع @lid أو @c.us)
-        const result = await sendWhatsAppMessage(rawChatId, autoReply);
-        return res.status(200).json({ success: result.success, replied: true });
+        console.log(`🤖 [${INSTANCE.name}] Sending auto-reply...`);
+        const result = await sendWhatsAppMessage(chatId, autoReply);
+        
+        return res.status(200).json({ 
+            success: result.success,
+            replied: true,
+            from_instance: INSTANCE.name,
+            result: result
+        });
     } else {
-        console.log(`⚠️ No auto-reply found for: "${message}"`);
-        return res.status(200).json({ success: true, replied: false });
+        console.log(`⚠️ [${INSTANCE.name}] No auto-reply found for: "${message}"`);
+        return res.status(200).json({ 
+            success: true,
+            replied: false,
+            reason: 'No matching rule found'
+        });
     }
 };
