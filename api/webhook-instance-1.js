@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { saveUserState, getUserState, deleteUserState, cleanupExpiredUsers } = require('./firebase-config');
 
 // ==================== COMPANY DATA ====================
 const companyData = {
@@ -47,48 +48,61 @@ const companyData = {
 };
 
 // ==================== USER STATE MANAGEMENT ====================
-// ⚠️ تنبيه: الحالات تخزن في RAM فقط، وستفقد عند إعادة تشغيل السيرفر
-// للحل الاحترافي: استخدم Redis أو Firebase أو Upstash
-
+// الحالات تخزن في Firebase بشكل دائم
 // حالتين لكل عميل:
 // 🤖 "bot" - البوت يرد تلقائياً (الوضع الافتراضي)
 // 👨‍💼 "human" - البوت ساكت، أنت ترد
-const userState = {};
 
-// 🔥 تخزين الـ timeouts
+// 🔥 تخزين الـ timeouts في memory فقط (لأنها مؤقتة)
 const timeouts = {};
+
+// Instance Configuration
+const INSTANCE_ID = "instance3532";
+const INSTANCE = {
+    id: INSTANCE_ID,
+    token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
+    name: "الرقم الأول - النمر للشحن",
+    active: true
+};
 
 // 🔥 Auto timeout - لو أنت نسيت العميل، يرجع تلقائياً للبوت بعد 30 دقيقة
 const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 دقيقة
 
-function setAutoTimeout(phone) {
+async function setAutoTimeout(phone) {
     if (timeouts[phone]) {
         clearTimeout(timeouts[phone]);
         delete timeouts[phone];
     }
     
-    timeouts[phone] = setTimeout(() => {
-        if (userState[phone] && userState[phone].mode === "human") {
-            delete userState[phone];
+    timeouts[phone] = setTimeout(async () => {
+        const userState = await getUserState(INSTANCE_ID, phone);
+        if (userState && userState.mode === "human") {
+            await deleteUserState(INSTANCE_ID, phone);
             delete timeouts[phone];
             console.log(`🤖 Auto timeout: User ${phone} switched back to BOT mode after 30 minutes`);
         }
     }, TIMEOUT_DURATION);
 }
 
-function updateUserTimestamp(phone) {
-    if (userState[phone] && userState[phone].mode === "human") {
-        setAutoTimeout(phone);
+async function updateUserTimestamp(phone) {
+    const userState = await getUserState(INSTANCE_ID, phone);
+    if (userState && userState.mode === "human") {
+        await saveUserState(INSTANCE_ID, phone, {
+            mode: "human",
+            timestamp: Date.now()
+        });
+        await setAutoTimeout(phone);
     }
 }
 
-// Instance Configuration
-const INSTANCE = {
-    id: "instance3532",
-    token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
-    name: "الرقم الأول - النمر للشحن",
-    active: true
-};
+// تنظيف عند بدء التشغيل
+async function initialize() {
+    console.log(`🚀 Initializing ${INSTANCE.name} with Firebase...`);
+    await cleanupExpiredUsers(INSTANCE_ID);
+}
+
+// تشغيل التهيئة
+initialize();
 
 // ==================== AUTO REPLY RULES ====================
 let autoRules = [
@@ -272,7 +286,7 @@ module.exports = async (req, res) => {
             status: 'active', 
             instance: INSTANCE.name,
             instance_id: INSTANCE.id,
-            activeUsers: Object.keys(userState).length,
+            storage: 'Firebase',
             timestamp: new Date().toISOString() 
         });
     }
@@ -308,19 +322,25 @@ module.exports = async (req, res) => {
     console.log(`💬 Message: ${message}`);
     console.log(`👤 Is from me: ${isFromMe}`);
     
-    // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM 🔥🔥🔥
+    // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM WITH FIREBASE 🔥🔥🔥
     
     // الحالة 1: أنا اللي برد على العميل (fromMe = true)
     if (isFromMe) {
-        userState[cleanPhone] = { mode: "human", timestamp: Date.now() };
-        setAutoTimeout(cleanPhone);
+        await saveUserState(INSTANCE_ID, cleanPhone, {
+            mode: "human",
+            timestamp: Date.now()
+        });
+        await setAutoTimeout(cleanPhone);
         console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (I replied)`);
-        return res.status(200).json({ success: true, mode: "human" });
+        return res.status(200).json({ success: true, mode: "human", storage: "Firebase" });
     }
     
+    // استرجاع حالة العميل من Firebase
+    const userState = await getUserState(INSTANCE_ID, cleanPhone);
+    
     // الحالة 2: العميل في وضع human (البوت يسكت خالص)
-    if (userState[cleanPhone]?.mode === "human") {
-        updateUserTimestamp(cleanPhone);
+    if (userState && userState.mode === "human") {
+        await updateUserTimestamp(cleanPhone);
         console.log(`🤫 [${INSTANCE.name}] Human mode active for ${cleanPhone}, bot silent`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
@@ -339,8 +359,11 @@ module.exports = async (req, res) => {
     );
     
     if (isCustomerServiceRequest) {
-        userState[cleanPhone] = { mode: "human", timestamp: Date.now() };
-        setAutoTimeout(cleanPhone);
+        await saveUserState(INSTANCE_ID, cleanPhone, {
+            mode: "human",
+            timestamp: Date.now()
+        });
+        await setAutoTimeout(cleanPhone);
         console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanPhone} switched to HUMAN mode (requested via 6)`);
         
         const autoReply = findAutoReply(message);
@@ -352,12 +375,12 @@ module.exports = async (req, res) => {
     
     // 🔥 التحقق من طلب العودة للبوت (قائمة أو menu)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
-    if (isMenuRequest && userState[cleanPhone]?.mode === "human") {
+    if (isMenuRequest && userState && userState.mode === "human") {
         if (timeouts[cleanPhone]) {
             clearTimeout(timeouts[cleanPhone]);
             delete timeouts[cleanPhone];
         }
-        delete userState[cleanPhone];
+        await deleteUserState(INSTANCE_ID, cleanPhone);
         console.log(`🤖 [${INSTANCE.name}] User ${cleanPhone} switched back to BOT mode (requested menu)`);
     }
     
