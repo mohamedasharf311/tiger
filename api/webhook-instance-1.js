@@ -182,7 +182,7 @@ loadUserStates();
 const INSTANCE = {
     id: "instance3532",
     token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
-    name: "الرقم الأول - النمر للشحن",
+    name: "201553999935",
     active: true
 };
 
