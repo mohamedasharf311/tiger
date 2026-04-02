@@ -57,9 +57,6 @@ const INSTANCE = {
     active: true
 };
 
-// 🔥 رقم هاتف المسؤول (أنت) - ضروري للكشف عن رسائلك
-const ADMIN_PHONE = "201553999935"; // ضع رقم هاتفك هنا
-
 // ==================== CACHE للـ timeouts (في الذاكرة فقط) ====================
 const timeouts = {};
 const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 دقيقة
@@ -318,7 +315,6 @@ module.exports = async (req, res) => {
             instance_id: INSTANCE.id,
             phone: INSTANCE.phoneNumber,
             storage: 'Firebase',
-            admin_phone: ADMIN_PHONE,
             message: 'Webhook is working with Firebase!',
             timestamp: new Date().toISOString()
         });
@@ -335,37 +331,7 @@ module.exports = async (req, res) => {
     if (data.payload) {
         rawChatId = data.payload.from;
         message = data.payload.body;
-        
-        // 🔥🔥🔥 الكشف عن رسائلك أنت (المسؤول) 🔥🔥🔥
-        // الطريقة 1: من خلال fromMe
         isFromMe = data.payload.fromMe || false;
-        
-        // الطريقة 2: لو الرقم اللي باعت هو رقمك أنت
-        if (!isFromMe && rawChatId) {
-            let senderPhone = rawChatId.toString();
-            senderPhone = senderPhone.replace('@c.us', '');
-            senderPhone = senderPhone.replace('@lid', '');
-            senderPhone = senderPhone.replace('+', '');
-            senderPhone = senderPhone.replace(/[^0-9]/g, '');
-            if (senderPhone.startsWith('0')) senderPhone = senderPhone.substring(1);
-            
-            if (senderPhone === ADMIN_PHONE) {
-                isFromMe = true;
-                console.log(`✅ [${INSTANCE.name}] Detected admin message by phone number: ${senderPhone}`);
-            }
-        }
-        
-        // الطريقة 3: لو في to والرقم بتاعي
-        if (!isFromMe && data.payload.to) {
-            let toPhone = data.payload.to.toString();
-            toPhone = toPhone.replace('@c.us', '').replace('@lid', '').replace('+', '').replace(/[^0-9]/g, '');
-            if (toPhone.startsWith('0')) toPhone = toPhone.substring(1);
-            
-            if (toPhone === ADMIN_PHONE) {
-                isFromMe = true;
-                console.log(`✅ [${INSTANCE.name}] Detected admin message by 'to' field: ${toPhone}`);
-            }
-        }
     }
     
     if (!rawChatId && data.from) {
@@ -381,7 +347,7 @@ module.exports = async (req, res) => {
     
     console.log(`📱 [${INSTANCE.name}] From: ${rawChatId}`);
     console.log(`💬 [${INSTANCE.name}] Message: ${message}`);
-    console.log(`👤 [${INSTANCE.name}] Is from me (admin): ${isFromMe}`);
+    console.log(`👤 [${INSTANCE.name}] Is from me: ${isFromMe}`);
     
     // 🔥 الأهم: استخدم الرقم الأصلي كما هو من webhook (مع @lid أو @c.us)
     let chatId = rawChatId;
@@ -399,25 +365,24 @@ module.exports = async (req, res) => {
     
     // 🔥🔥🔥 HUMAN MODE SYSTEM WITH FIREBASE 🔥🔥🔥
     
-    // 1. إذا أنا اللي رديت على العميل (أنا المسؤول)
+    // 1. إذا أنا اللي رديت على العميل
     if (isFromMe) {
-        // 🔥 هذا هو المفتاح - عندما ترد أنت، البوت يتوقف لمدة 30 دقيقة
         await saveUserState(INSTANCE_ID, cleanNumber, "human");
         await setAutoTimeout(cleanNumber);
-        console.log(`👨‍💼 [${INSTANCE.name}] 🛑 BOT STOPPED for user ${cleanNumber} for 30 minutes (admin replied)`);
-        return res.status(200).json({ success: true, mode: "human", storage: "Firebase", message: "Bot disabled for 30 minutes" });
+        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanNumber} -> HUMAN mode (I replied)`);
+        return res.status(200).json({ success: true, mode: "human", storage: "Firebase" });
     }
     
     // استرجاع حالة العميل من Firebase
     const currentMode = await getUserState(INSTANCE_ID, cleanNumber);
     
-    // 2. إذا العميل في وضع human (البوت يسكت خالص)
+    // 2. إذا العميل في وضع human (البوت يسكت)
     if (currentMode === "human") {
-        console.log(`🤫 [${INSTANCE.name}] Human mode active for ${cleanNumber}, bot silent (waiting for admin)`);
+        console.log(`🤫 [${INSTANCE.name}] Human mode active for ${cleanNumber}, bot silent`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    // 3. طلب خدمة العملاء (الرقم 6) - يوقف البوت أيضاً
+    // 3. طلب خدمة العملاء (الرقم 6)
     const isCustomerServiceRequest = (
         message.trim() === '6' || 
         message.trim() === '٦' ||
@@ -433,7 +398,7 @@ module.exports = async (req, res) => {
     if (isCustomerServiceRequest) {
         await saveUserState(INSTANCE_ID, cleanNumber, "human");
         await setAutoTimeout(cleanNumber);
-        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanNumber} requested human support - BOT STOPPED`);
+        console.log(`👨‍💼 [${INSTANCE.name}] User ${cleanNumber} -> HUMAN mode (requested support)`);
         
         const autoReply = findAutoReply(message);
         if (autoReply) {
@@ -442,7 +407,7 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human" });
     }
     
-    // 4. طلب العودة للبوت (قائمة أو menu)
+    // 4. طلب العودة للقائمة (menu)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
     if (isMenuRequest && currentMode === "human") {
         if (timeouts[cleanNumber]) {
@@ -450,7 +415,7 @@ module.exports = async (req, res) => {
             delete timeouts[cleanNumber];
         }
         await deleteUserState(INSTANCE_ID, cleanNumber);
-        console.log(`🤖 [${INSTANCE.name}] User ${cleanNumber} -> BOT REACTIVATED (requested menu)`);
+        console.log(`🤖 [${INSTANCE.name}] User ${cleanNumber} -> BOT mode (requested menu)`);
     }
     
     // البحث عن رد تلقائي
