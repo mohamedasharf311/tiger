@@ -67,24 +67,65 @@ const INSTANCE = {
 // 🔥 رقم هاتف المسؤول
 const ADMIN_PHONE = "201119383101";
 
+// 🔥 كلمات مفتاحية خاصة بالعملاء (وليس المسؤول)
+const CUSTOMER_KEYWORDS = [
+    '1', '2', '3', '4', '5', '6', 'قائمة', 'menu',
+    'سعر', 'شحن', 'توصيل', 'دفع', 'شروط', 'خدمة العملاء',
+    'price', 'shipping', 'delivery', 'payment', 'terms', 'support'
+];
+
 // ==================== CACHE للـ timeouts ====================
 const timeouts = {};
 const TIMEOUT_DURATION = 30 * 60 * 1000;
 
-async function setAutoTimeout(phone) {
-    if (timeouts[phone]) {
-        clearTimeout(timeouts[phone]);
-        delete timeouts[phone];
+async function setAutoTimeout(chatId) {
+    if (timeouts[chatId]) {
+        clearTimeout(timeouts[chatId]);
+        delete timeouts[chatId];
     }
     
-    timeouts[phone] = setTimeout(async () => {
-        const currentMode = await getUserState(INSTANCE_ID, phone);
+    timeouts[chatId] = setTimeout(async () => {
+        const currentMode = await getUserState(INSTANCE_ID, chatId);
         if (currentMode === "human") {
-            await deleteUserState(INSTANCE_ID, phone);
-            delete timeouts[phone];
-            console.log(`🤖 Auto timeout: User ${phone} switched back to BOT mode after 30 minutes`);
+            await deleteUserState(INSTANCE_ID, chatId);
+            delete timeouts[chatId];
+            console.log(`🤖 Auto timeout: User ${chatId} switched back to BOT mode after 30 minutes`);
         }
     }, TIMEOUT_DURATION);
+}
+
+// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول (behavior detection)
+function isMessageFromAdmin(message, isFromMe, chatId) {
+    // 1. إذا كانت fromMe = true → أكيد مني
+    if (isFromMe) {
+        console.log(`✅ Admin detected by fromMe flag`);
+        return true;
+    }
+    
+    // 2. إذا كان الرقم هو رقم المسؤول
+    if (chatId.includes(ADMIN_PHONE)) {
+        console.log(`✅ Admin detected by phone number: ${ADMIN_PHONE}`);
+        return true;
+    }
+    
+    // 3. كشف behavior: الرسائل القصيرة جداً (غالباً ردود)
+    if (message.length < 3) {
+        console.log(`✅ Admin detected by message length (${message.length} chars) - too short for customer`);
+        return true;
+    }
+    
+    // 4. إذا كانت الرسالة لا تحتوي على أي كلمة مفتاحية للعملاء
+    const lowerMsg = message.toLowerCase();
+    const hasCustomerKeyword = CUSTOMER_KEYWORDS.some(keyword => 
+        lowerMsg.includes(keyword.toLowerCase())
+    );
+    
+    if (!hasCustomerKeyword && message.length > 2) {
+        console.log(`✅ Admin detected - no customer keywords found in: "${message}"`);
+        return true;
+    }
+    
+    return false;
 }
 
 // ==================== AUTO REPLY RULES ====================
@@ -319,8 +360,9 @@ module.exports = async (req, res) => {
             instance: INSTANCE.name,
             instance_id: INSTANCE.id,
             phone: INSTANCE.phoneNumber,
+            admin_phone: ADMIN_PHONE,
             storage: 'Firebase',
-            message: 'Webhook is working with Firebase!',
+            message: 'Webhook is working with Firebase and Advanced Admin Detection!',
             timestamp: new Date().toISOString()
         });
     }
@@ -336,17 +378,6 @@ module.exports = async (req, res) => {
         rawChatId = data.payload.from;
         message = data.payload.body;
         isFromMe = data.payload.fromMe || false;
-        
-        // كشف رسائل المسؤول
-        if (!isFromMe && rawChatId) {
-            let senderPhone = rawChatId.toString();
-            senderPhone = senderPhone.replace('@c.us', '').replace('@lid', '').replace(/[^0-9]/g, '');
-            if (senderPhone.startsWith('0')) senderPhone = senderPhone.substring(1);
-            if (senderPhone === ADMIN_PHONE) {
-                isFromMe = true;
-                console.log(`✅ Admin detected: ${senderPhone}`);
-            }
-        }
     }
     
     if (!rawChatId || !message) {
@@ -365,30 +396,52 @@ module.exports = async (req, res) => {
     
     console.log(`📱 From: ${rawChatId}`);
     console.log(`💬 Message: ${message}`);
-    console.log(`👤 Is admin: ${isFromMe}`);
+    console.log(`👤 Is from me (Wapilot flag): ${isFromMe}`);
     
-    // 🔥🔥🔥 حفظ كل الرسائل الواردة 🔥🔥🔥
+    // حفظ المحادثة
     await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
     
-    // HUMAN MODE SYSTEM
-    if (isFromMe) {
-        await saveUserState(INSTANCE_ID, cleanNumber, "human");
-        await setAutoTimeout(cleanNumber);
-        console.log(`👨‍💼 BOT STOPPED for user ${cleanNumber} (admin replied)`);
-        return res.status(200).json({ success: true, mode: "human" });
+    // 🔥🔥🔥 ADVANCED ADMIN DETECTION SYSTEM 🔥🔥🔥
+    const isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
+    console.log(`👑 Is Admin (detected): ${isAdmin}`);
+    
+    // 1. إذا كانت الرسالة من المسؤول
+    if (isAdmin) {
+        await saveUserState(INSTANCE_ID, chatId, "human");
+        await setAutoTimeout(chatId);
+        console.log(`👨‍💼 [${INSTANCE.name}] 🛑 BOT STOPPED for user ${chatId} for 30 minutes (admin message detected)`);
+        console.log(`📊 MODE: human`);
+        return res.status(200).json({ success: true, mode: "human", detected: "admin" });
     }
     
-    const currentMode = await getUserState(INSTANCE_ID, cleanNumber);
+    // استرجاع حالة العميل
+    const currentMode = await getUserState(INSTANCE_ID, chatId);
+    console.log(`📊 Current mode for ${chatId}: ${currentMode || "bot"}`);
     
+    // 2. إذا العميل في وضع human (البوت يسكت)
     if (currentMode === "human") {
-        console.log(`🤫 Human mode active, bot silent`);
+        console.log(`🤫 [${INSTANCE.name}] Human mode active, bot silent (waiting for admin)`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    if (message.trim() === '6' || message.includes('خدمة العملاء') || message.includes('customer service')) {
-        await saveUserState(INSTANCE_ID, cleanNumber, "human");
-        await setAutoTimeout(cleanNumber);
-        console.log(`👨‍💼 User requested human support - BOT STOPPED`);
+    // 3. طلب خدمة العملاء (الرقم 6)
+    const isCustomerServiceRequest = (
+        message.trim() === '6' || 
+        message.trim() === '٦' ||
+        message.toLowerCase().includes('خدمة العملاء') ||
+        message.toLowerCase().includes('خدمه العملاء') ||
+        message.toLowerCase().includes('customer service') ||
+        message.toLowerCase().includes('support') ||
+        message.toLowerCase().includes('agent') ||
+        message.toLowerCase().includes('human') ||
+        message.toLowerCase().includes('موظف')
+    );
+    
+    if (isCustomerServiceRequest) {
+        await saveUserState(INSTANCE_ID, chatId, "human");
+        await setAutoTimeout(chatId);
+        console.log(`👨‍💼 [${INSTANCE.name}] User requested human support - BOT STOPPED`);
+        console.log(`📊 MODE: human`);
         
         const autoReply = findAutoReply(message);
         if (autoReply) {
@@ -400,20 +453,23 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human" });
     }
     
-    if (message.includes('قائمة') || message.toLowerCase().includes('menu')) {
-        if (currentMode === "human") {
-            if (timeouts[cleanNumber]) {
-                clearTimeout(timeouts[cleanNumber]);
-                delete timeouts[cleanNumber];
-            }
-            await deleteUserState(INSTANCE_ID, cleanNumber);
-            console.log(`🤖 BOT REACTIVATED (requested menu)`);
+    // 4. طلب العودة للبوت (قائمة أو menu)
+    const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
+    if (isMenuRequest && currentMode === "human") {
+        if (timeouts[chatId]) {
+            clearTimeout(timeouts[chatId]);
+            delete timeouts[chatId];
         }
+        await deleteUserState(INSTANCE_ID, chatId);
+        console.log(`🤖 [${INSTANCE.name}] User ${chatId} -> BOT REACTIVATED (requested menu)`);
+        console.log(`📊 MODE: bot`);
     }
     
+    // البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
+        console.log(`🤖 [${INSTANCE.name}] Sending auto-reply to ${chatId}...`);
         const result = await sendWhatsAppMessage(chatId, autoReply);
         
         if (result.success) {
@@ -422,7 +478,7 @@ module.exports = async (req, res) => {
         
         return res.status(200).json({ success: result.success, replied: true });
     } else {
-        console.log(`⚠️ No auto-reply found for: "${message}"`);
+        console.log(`⚠️ [${INSTANCE.name}] No auto-reply found for: "${message}"`);
         return res.status(200).json({ success: true, replied: false });
     }
 };
