@@ -1,34 +1,551 @@
-// أضف هذا في بداية الملف بعد الـ requires
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+
+// ==================== COMPANY DATA ====================
+const companyData = {
+    name: "النمر للشحن - ELNMR",
+    services: "شحن – تخزين – تغليف داخل الإسكندرية",
+    welcomeMessage: `🐯 أهلاً بيك في شركة النمر للشحن! / Welcome to ELNMR Shipping!
+
+من فضلك اختار الرقم المناسب 👇 / Please choose the appropriate number 👇
+
+1️⃣ أسعار الشحن داخل الإسكندرية / Alexandria shipping prices
+2️⃣ أسعار الشحن خارج الإسكندرية / Outside Alexandria shipping prices
+3️⃣ مدة التوصيل / Delivery time
+4️⃣ طرق الدفع / Payment methods
+5️⃣ شروط الشحن / Shipping terms
+6️⃣ التحدث مع خدمة العملاء / Contact customer service`,
+    
+    deliveryTimes: {
+        north: "داخل الوجه البحري: خلال 72 ساعة / Nile Delta: within 72 hours",
+        south: "وجه قبلي: خلال 5 أيام / Upper Egypt: within 5 days",
+        collection: "التحصيل: خلال 24 ساعة / Collection: within 24 hours"
+    },
+    
+    paymentMethods: "كاش - محفظة - إنستاباي - حساب بنكي / Cash - Wallet - Instapay - Bank Transfer",
+    
+    shippingPrices: {
+        alexandria: {
+            "60 جنيه": ["سيدي جابر", "جليم", "سموحة", "كفر عبده", "محطة الرمل", "محرم بك", "محطة مصر", "اللبان", "العطارين", "المنشية", "كرموز"],
+            "65 جنيه": ["رأس السودة", "سيوف", "حجر النواتية", "خورشيد"],
+            "70 جنيه": ["المندرة", "المعمورة", "طوسون", "أبو قير"],
+            "75 جنيه": ["العجمي"],
+            "90 جنيه": ["برج العرب"]
+        },
+        outsideAlexandria: {
+            "100 جنيه": ["القاهرة", "بورسعيد", "الإسماعيلية", "الفيوم", "قنا"],
+            "120 جنيه": ["سوهاج"]
+        }
+    },
+    
+    terms: [
+        "السعر ممكن يتغير حسب البنزين / Price may change based on fuel cost",
+        "الأوردر القابل للكسر = مسؤولية العميل / Fragile items are customer's responsibility",
+        "في خدمة VIP توصيل نفس اليوم / VIP same-day delivery service available",
+        "يتم إضافة تكلفة بعد 5 كيلو / Extra charge applied beyond 5 km",
+        "في تعاقدات للشركات بأسعار خاصة / Corporate contracts with special rates"
+    ]
+};
+
+// ==================== USER STATE MANAGEMENT ====================
+// حالتين لكل عميل:
+// 🤖 "bot" - البوت يرد تلقائياً (الوضع الافتراضي)
+// 👨‍💼 "human" - البوت ساكت، أنت ترد
 const userState = {};
 
-// وفي webhook handler، أضف هذا المنطق قبل findAutoReply:
+// 🔥 تخزين الـ timeouts في memory فقط (ليس في JSON)
+const timeouts = {};
 
-// 🔥🔥🔥 MANUAL OVERRIDE SYSTEM 🔥🔥🔥
+// 🔥 ملف لحفظ الحالات بشكل دائم (حتى بعد إعادة التشغيل)
+const STATE_FILE = path.join(__dirname, '..', 'data', 'easy-order-states.json');
+const DATA_DIR = path.join(__dirname, '..', 'data');
 
-// الحالة 1: أنا اللي برد على العميل (fromMe = true)
-if (isFromMe) {
-    userState[cleanPhone] = "human";
-    console.log(`👨‍💼 User ${cleanPhone} switched to HUMAN mode (I replied)`);
-    return res.status(200).json({ success: true, mode: "human" });
+// التأكد من وجود مجلد data
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// الحالة 2: العميل في وضع human (البوت يسكت خالص)
-if (userState[cleanPhone] === "human") {
-    console.log(`🤫 Human mode active for ${cleanPhone}, bot silent`);
-    return res.status(200).json({ success: true, mode: "human" });
-}
-
-// الحالة 3: العميل في وضع pending (مستني رد مني)
-if (userState[cleanPhone] === "pending") {
-    console.log(`⏳ Pending mode for ${cleanPhone}, waiting for human reply`);
-    const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
-    if (!isMenuRequest) {
-        return res.status(200).json({ success: true, mode: "pending" });
+// تحميل الحالات المحفوظة عند بدء التشغيل
+function loadUserStates() {
+    try {
+        if (fs.existsSync(STATE_FILE)) {
+            const data = fs.readFileSync(STATE_FILE, 'utf8');
+            const saved = JSON.parse(data);
+            
+            // 🔥 التحقق من الـ timestamp عند التحميل
+            const now = Date.now();
+            const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 دقيقة
+            let expiredCount = 0;
+            
+            Object.keys(saved).forEach(phone => {
+                const user = saved[phone];
+                
+                // إذا كان في وضع human وعدى عليه أكثر من 30 دقيقة
+                if (user.mode === "human" && user.timestamp) {
+                    const elapsed = now - user.timestamp;
+                    if (elapsed >= TIMEOUT_DURATION) {
+                        console.log(`⏰ User ${phone} expired (${Math.floor(elapsed / 60000)} minutes ago), skipping`);
+                        expiredCount++;
+                        return;
+                    }
+                }
+                
+                // إضافة المستخدم للحالات النشطة
+                userState[phone] = user;
+            });
+            
+            console.log(`📂 Loaded ${Object.keys(userState).length} active user states from file (${expiredCount} expired skipped)`);
+            
+            // 🔥 إعادة إنشاء الـ timeouts للمستخدمين النشطين
+            Object.keys(userState).forEach(phone => {
+                if (userState[phone].mode === "human") {
+                    const remainingTime = TIMEOUT_DURATION - (now - userState[phone].timestamp);
+                    if (remainingTime > 0) {
+                        setAutoTimeout(phone, remainingTime);
+                        console.log(`⏱️ Restored timeout for ${phone} with ${Math.floor(remainingTime / 60000)} minutes remaining`);
+                    } else {
+                        delete userState[phone];
+                        console.log(`🤖 User ${phone} auto-switched to BOT mode after restart`);
+                    }
+                }
+            });
+            
+            saveUserStates();
+        }
+    } catch (error) {
+        console.error('Error loading user states:', error);
     }
 }
 
-// بعد الرد التلقائي، حول العميل إلى pending
-if (autoReply && result.success) {
-    userState[cleanPhone] = "pending";
-    console.log(`⏳ User ${cleanPhone} switched to PENDING mode`);
+// حفظ الحالات في ملف (بدون timeouts)
+function saveUserStates() {
+    try {
+        const toSave = {};
+        Object.keys(userState).forEach(phone => {
+            toSave[phone] = {
+                mode: userState[phone].mode,
+                timestamp: userState[phone].timestamp
+            };
+        });
+        fs.writeFileSync(STATE_FILE, JSON.stringify(toSave, null, 2));
+        console.log(`💾 Saved ${Object.keys(toSave).length} user states to file`);
+    } catch (error) {
+        console.error('Error saving user states:', error);
+    }
 }
+
+// 🔥 Auto timeout
+const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 دقيقة
+
+function setAutoTimeout(phone, customDuration = null) {
+    if (timeouts[phone]) {
+        clearTimeout(timeouts[phone]);
+        delete timeouts[phone];
+    }
+    
+    const duration = customDuration || TIMEOUT_DURATION;
+    
+    timeouts[phone] = setTimeout(() => {
+        if (userState[phone] && userState[phone].mode === "human") {
+            delete userState[phone];
+            delete timeouts[phone];
+            saveUserStates();
+            console.log(`🤖 Auto timeout: User ${phone} switched back to BOT mode after ${Math.floor(duration / 60000)} minutes`);
+        }
+    }, duration);
+    
+    console.log(`⏱️ Timeout set for ${phone}: ${Math.floor(duration / 60000)} minutes`);
+}
+
+function updateUserTimestamp(phone) {
+    if (userState[phone]) {
+        userState[phone].timestamp = Date.now();
+        saveUserStates();
+        if (userState[phone].mode === "human") {
+            setAutoTimeout(phone);
+        }
+    }
+}
+
+// تحميل الحالات عند بدء التشغيل
+loadUserStates();
+
+// ==================== INSTANCES CONFIGURATION ====================
+const instances = [
+    {
+        id: "instance3532",
+        token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
+        name: "الرقم الأول - النمر للشحن",
+        active: true
+    },
+    {
+        id: "instance3537",
+        token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
+        name: "الرقم الثاني - النمر للشحن",
+        active: true
+    }
+];
+
+// ==================== AUTO REPLY RULES ====================
+let autoRules = [
+    {
+        id: 0,
+        keywords: ['قائمة', 'menu', 'الرئيسية', 'start', 'بداية', 'مرحباً', 'مرحبا', 'اهلا', 'أهلاً', 'السلام عليكم', 'وعليكم السلام', 'صباح الخير', 'مساء الخير', 'هاي', 'hello', 'hi', 'hey', 'ازيك', 'عامل ايه', 'عاملين ايه', 'اخباركم', 'كيفك', 'how are you'],
+        reply: companyData.welcomeMessage,
+        active: true
+    },
+    {
+        id: 1,
+        keywords: ['1', '١', 'داخل الاسكندرية', 'داخل الإسكندرية', 'اسكندرية', 'الإسكندرية', 'اسعار اسكندرية', 'اسعار داخل', 'سعر', 'price', 'alexandria'],
+        reply: `📍 أسعار الشحن داخل الإسكندرية / Alexandria Shipping Prices:
+
+💰 60 جنيه / EGP:
+${companyData.shippingPrices.alexandria["60 جنيه"].join(' - ')}
+
+💰 65 جنيه / EGP:
+${companyData.shippingPrices.alexandria["65 جنيه"].join(' - ')}
+
+💰 70 جنيه / EGP:
+${companyData.shippingPrices.alexandria["70 جنيه"].join(' - ')}
+
+💰 75 جنيه / EGP:
+${companyData.shippingPrices.alexandria["75 جنيه"].join(' - ')}
+
+💰 90 جنيه / EGP:
+${companyData.shippingPrices.alexandria["90 جنيه"].join(' - ')}
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+        active: true
+    },
+    {
+        id: 2,
+        keywords: ['2', '٢', 'خارج الاسكندرية', 'خارج الإسكندرية', 'خارج', 'اسعار خارج', 'القاهرة', 'بورسعيد', 'الإسماعيلية', 'الفيوم', 'قنا', 'سوهاج', 'outside alexandria', 'cairo'],
+        reply: `📍 أسعار الشحن خارج الإسكندرية / Outside Alexandria Shipping Prices:
+
+💰 100 جنيه / EGP:
+${companyData.shippingPrices.outsideAlexandria["100 جنيه"].join(' - ')}
+
+💰 120 جنيه / EGP:
+${companyData.shippingPrices.outsideAlexandria["120 جنيه"].join(' - ')}
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+        active: true
+    },
+    {
+        id: 3,
+        keywords: ['3', '٣', 'مدة التوصيل', 'التوصيل', 'المدة', 'وقت', 'كم يوم', 'delivery time', 'how long'],
+        reply: `⏱️ مدة التوصيل في النمر للشحن / Delivery Times:
+
+• ${companyData.deliveryTimes.north}
+• ${companyData.deliveryTimes.south}
+• ${companyData.deliveryTimes.collection}
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+        active: true
+    },
+    {
+        id: 4,
+        keywords: ['4', '٤', 'طرق الدفع', 'الدفع', 'payment', 'how to pay', 'cash'],
+        reply: `💰 طرق الدفع في النمر للشحن / Payment Methods:
+
+• كاش / Cash 💵
+• محفظة / Wallet 📱 (فودافون كاش - انستاباي / Vodafone Cash - Instapay)
+• إنستاباي / Instapay 🏦
+• تحويل بنكي / Bank Transfer 💳
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+        active: true
+    },
+    {
+        id: 5,
+        keywords: ['5', '٥', 'شروط', 'شروط الشحن', 'سياسة', 'terms', 'conditions'],
+        reply: `📋 شروط الشحن في النمر للشحن / Shipping Terms:
+
+${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+        active: true
+    },
+    {
+        id: 6,
+        keywords: ['6', '٦', 'خدمة العملاء', 'خدمه العملاء', 'دعم', 'support', 'customer service', 'agent', 'human', 'موظف'],
+        reply: "👤 تم تحويل محادثتك إلى خدمة العملاء في النمر للشحن. سيتم الرد عليك يدوياً في أقرب وقت. شكراً لصبرك.\n\nYour conversation has been transferred to customer service. You will receive a manual reply shortly. Thank you for your patience.",
+        active: true
+    },
+    {
+        id: 7,
+        keywords: ['طلب شحن', 'شحنة', 'طلب', 'اوردر', 'اطلب', 'order', 'new order'],
+        reply: `🛍️ لطلب شحنة جديدة في النمر للشحن، يرجى إرسال / To place a new order, please send:
+
+1️⃣ اسمك الكامل / Full name
+2️⃣ العنوان بالتفصيل / Detailed address
+3️⃣ نوع البضاعة / Package type (عادي/fragile)
+4️⃣ الوزن التقريبي / Approximate weight (kg)
+
+سيتم التواصل معك لتأكيد السعر وموعد الاستلام.
+We will contact you to confirm price and pickup time.
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+        active: true
+    },
+    {
+        id: 8,
+        keywords: ['vip', 'VIP', 'نفس اليوم', 'توصيل سريع', 'express', 'same day'],
+        reply: `🚚 خدمة VIP توصيل نفس اليوم في النمر للشحن / VIP Same Day Delivery:
+
+• متاحة داخل الإسكندرية فقط / Available only in Alexandria
+• السعر يبدأ من 150 جنيه حسب المنطقة والوزن / Starting from 150 EGP depending on area and weight
+• للطلب، تواصل مع خدمة العملاء (اضغط 6) / To order, contact customer service (press 6)
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+        active: true
+    },
+    {
+        id: 9,
+        keywords: ['شكرا', 'ممتاز', 'تمام', 'شكراً', 'thank', 'thanks', 'great'],
+        reply: `🎉 شكراً لك على تواصلك مع النمر للشحن! / Thank you for contacting ELNMR Shipping!
+
+نحن في خدمتك دائماً. إذا احتجت أي مساعدة أخرى، فقط اكتب 'قائمة' للعودة للخدمات المتاحة.
+We are always at your service. If you need any further assistance, just type 'menu' to return to available services.
+
+نتمنى لك يوماً سعيداً! 🐯 / Have a great day! 🐯`,
+        active: true
+    }
+];
+
+// ==================== HELPER FUNCTIONS ====================
+function findAutoReply(message) {
+    if (!message) return null;
+    const lowerMsg = message.toLowerCase().trim();
+    
+    for (let rule of autoRules) {
+        if (!rule.active) continue;
+        for (let keyword of rule.keywords) {
+            if (lowerMsg === keyword.toLowerCase() || lowerMsg.includes(keyword.toLowerCase())) {
+                console.log(`✅ Found rule: ${rule.id} - Keyword: ${keyword}`);
+                return rule.reply;
+            }
+        }
+    }
+    return null;
+}
+
+async function sendWhatsAppMessage(instance, chat_id, message) {
+    try {
+        console.log(`📤 [${instance.name}] Sending to: ${chat_id}`);
+        
+        const response = await axios.post(
+            `https://api.wapilot.net/api/v2/${instance.id}/send-message`,
+            { chat_id, text: message },
+            { headers: { "token": instance.token, "Content-Type": "application/json" } }
+        );
+        
+        console.log(`✅ [${instance.name}] Sent successfully to ${chat_id}`);
+        return { success: true, data: response.data };
+    } catch (error) {
+        console.error(`❌ [${instance.name}] Send failed:`, error.response?.data || error.message);
+        return { success: false, error: error.response?.data || error.message };
+    }
+}
+
+// ==================== WEBHOOK HANDLER ====================
+module.exports = async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    
+    if (req.method === 'GET') {
+        return res.status(200).json({ 
+            status: 'active', 
+            company: companyData.name,
+            instances: instances.map(i => ({ id: i.id, name: i.name, active: i.active })),
+            rulesCount: autoRules.filter(r => r.active).length,
+            activeUsers: Object.keys(userState).length,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    console.log('📦 Easy Order Webhook received:', new Date().toISOString());
+    console.log('🔍 Full webhook data:', JSON.stringify(req.body, null, 2));
+    
+    const data = req.body;
+    let rawChatId = null;
+    let message = null;
+    let incomingInstanceId = null;
+    let isFromMe = false;
+    
+    if (data.payload) {
+        rawChatId = data.payload.from;
+        message = data.payload.body;
+        incomingInstanceId = data.instance_id || data.webhook_id || data.payload.instance_id;
+        isFromMe = data.payload.fromMe || false;
+    }
+    
+    if (!rawChatId && data.from) {
+        rawChatId = data.from;
+        message = data.body || data.text;
+        incomingInstanceId = data.instance_id || data.webhook_id;
+        isFromMe = data.fromMe || false;
+    }
+    
+    if (req.query.instance) {
+        incomingInstanceId = req.query.instance;
+    }
+    
+    if (req.headers['x-instance-id']) {
+        incomingInstanceId = req.headers['x-instance-id'];
+    }
+    
+    if (!rawChatId || !message) {
+        console.log('⚠️ Missing chat_id or message');
+        return res.status(200).json({ 
+            received: true, 
+            error: 'Missing data',
+            raw: data 
+        });
+    }
+    
+    let cleanPhone = rawChatId.replace('@c.us', '').replace('+', '').replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+    
+    console.log(`📱 Clean phone: ${cleanPhone}`);
+    console.log(`💬 Message: ${message}`);
+    console.log(`👤 Is from me: ${isFromMe}`);
+    console.log(`🔌 Incoming instance ID: ${incomingInstanceId || 'NOT PROVIDED'}`);
+    
+    let targetInstance = null;
+    
+    if (incomingInstanceId) {
+        targetInstance = instances.find(inst => inst.id === incomingInstanceId);
+        if (targetInstance && targetInstance.active) {
+            console.log(`✅ Using instance: ${targetInstance.name}`);
+        } else {
+            targetInstance = null;
+        }
+    }
+    
+    if (!targetInstance) {
+        targetInstance = instances.find(inst => inst.active);
+        console.log(`⚠️ Using fallback instance: ${targetInstance?.name}`);
+    }
+    
+    if (!targetInstance) {
+        console.log('❌ No active instance available');
+        return res.status(200).json({ received: true, error: 'No active instance' });
+    }
+    
+    let chatId = rawChatId;
+    if (!chatId.includes('@')) {
+        chatId = `${chatId}@c.us`;
+    }
+    
+    // 🔥🔥🔥 MANUAL OVERRIDE SYSTEM - CORRECTED (NO PENDING) 🔥🔥🔥
+    
+    // الحالة 1: أنا اللي برد على العميل (fromMe = true)
+    if (isFromMe) {
+        const currentMode = userState[cleanPhone]?.mode || "bot";
+        
+        userState[cleanPhone] = { 
+            mode: "human",
+            timestamp: Date.now()
+        };
+        setAutoTimeout(cleanPhone);
+        saveUserStates();
+        
+        console.log(`👨‍💼 User ${cleanPhone} switched to HUMAN mode (I replied from ${currentMode})`);
+        
+        return res.status(200).json({ 
+            success: true, 
+            mode: "human",
+            message: "You replied to user, bot disabled for 30 minutes"
+        });
+    }
+    
+    // الحالة 2: العميل في وضع human (البوت يسكت خالص)
+    if (userState[cleanPhone]?.mode === "human") {
+        updateUserTimestamp(cleanPhone);
+        console.log(`🤫 Human mode active for ${cleanPhone}, bot silent`);
+        return res.status(200).json({ 
+            success: true, 
+            mode: "human",
+            message: "Bot is silent, waiting for human response"
+        });
+    }
+    
+    // 🔥 التحقق من طلب تحويل لخدمة العملاء (الرقم 6)
+    const isCustomerServiceRequest = (
+        message.trim() === '6' || 
+        message.trim() === '٦' ||
+        message.toLowerCase().includes('خدمة العملاء') ||
+        message.toLowerCase().includes('خدمه العملاء') ||
+        message.toLowerCase().includes('customer service') ||
+        message.toLowerCase().includes('support') ||
+        message.toLowerCase().includes('agent') ||
+        message.toLowerCase().includes('human') ||
+        message.toLowerCase().includes('موظف')
+    );
+    
+    if (isCustomerServiceRequest) {
+        userState[cleanPhone] = { 
+            mode: "human",
+            timestamp: Date.now()
+        };
+        setAutoTimeout(cleanPhone);
+        saveUserStates();
+        
+        console.log(`👨‍💼 User ${cleanPhone} switched to HUMAN mode (requested via 6)`);
+        
+        const autoReply = findAutoReply(message);
+        if (autoReply) {
+            await sendWhatsAppMessage(targetInstance, chatId, autoReply);
+        }
+        
+        return res.status(200).json({ 
+            success: true, 
+            mode: "human",
+            message: "Customer service mode activated"
+        });
+    }
+    
+    // 🔥 التحقق من طلب العودة للبوت (قائمة أو menu)
+    const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
+    if (isMenuRequest && userState[cleanPhone]?.mode === "human") {
+        if (timeouts[cleanPhone]) {
+            clearTimeout(timeouts[cleanPhone]);
+            delete timeouts[cleanPhone];
+        }
+        delete userState[cleanPhone];
+        saveUserStates();
+        console.log(`🤖 User ${cleanPhone} switched back to BOT mode (requested menu)`);
+    }
+    
+    // البحث عن رد تلقائي
+    const autoReply = findAutoReply(message);
+    
+    if (autoReply) {
+        console.log(`🤖 Auto-reply found - Sending from ${targetInstance.name}...`);
+        const result = await sendWhatsAppMessage(targetInstance, chatId, autoReply);
+        
+        // ✅ لا نغير الحالة هنا - العميل يبقى في وضعه bot
+        
+        return res.status(200).json({ 
+            success: result.success,
+            replied: true,
+            mode: userState[cleanPhone]?.mode || "bot",
+            instance: targetInstance.name
+        });
+    } else {
+        console.log(`⚠️ No matching auto-reply found - No response sent`);
+        return res.status(200).json({ 
+            success: true, 
+            replied: false,
+            reason: 'No matching rule found',
+            mode: userState[cleanPhone]?.mode || "bot"
+        });
+    }
+};
