@@ -21,8 +21,9 @@ const companyData = {
 3️⃣ مدة التوصيل / Delivery time
 4️⃣ طرق الدفع / Payment methods
 5️⃣ شروط الشحن / Shipping terms
-6️⃣ التحدث مع خدمة العملاء / Contact customer service`,
-    
+6️⃣ التحدث مع خدمة العملاء / Contact customer service
+7️⃣ الباقات والأسعار الجديدة / Packages & New Prices`,
+
     deliveryTimes: {
         north: "داخل الوجه البحري: خلال 72 ساعة / Nile Delta: within 72 hours",
         south: "وجه قبلي: خلال 5 أيام / Upper Egypt: within 5 days",
@@ -37,7 +38,7 @@ const companyData = {
             "65 جنيه": ["رأس السودة", "سيوف", "حجر النواتية", "خورشيد"],
             "70 جنيه": ["المندرة", "المعمورة", "طوسون", "أبو قير"],
             "75 جنيه": ["العجمي"],
-            "90 جنيه": ["برج العرب"]
+            "90 جنيه": ["برج العرب", "العامرية"]
         },
         outsideAlexandria: {
             "100 جنيه": ["القاهرة", "بورسعيد", "الإسماعيلية", "الفيوم", "قنا"],
@@ -45,12 +46,45 @@ const companyData = {
         }
     },
     
+    // الأسعار الجديدة
+    newPrices: {
+        individual: {
+            "60 جنيه": "من الإبراهيمية للبحري",
+            "65 جنيه": "من الإبراهيمية لسيدي بشر",
+            "75 جنيه": "العجمي",
+            "90 جنيه": "العامرية - برج العرب"
+        },
+        pickupFee: "10 جنيه على كل أوردر",
+        packages: {
+            "10 أوردرات": "60 جنيه",
+            "20 أوردر": "55 جنيه",
+            "50 أوردر": "30 جنيه"
+        },
+        returns: {
+            customerRefusal: "في حالة رفض العميل دفع الشحن: حضرتك بتدفع الشحن كامل",
+            threeOrMore: "أكثر من 3 مرتجعات: بتدفع نص الشحن"
+        },
+        merchantPrices: {
+            "55 جنيه": "من الإبراهيمية للبحري",
+            "65 جنيه": "من الإبراهيمية لسيدي بشر",
+            "75 جنيه": "العجمي",
+            "90 جنيه": "العامرية - برج العرب"
+        }
+    },
+    
+    contactInfo: {
+        website: "elnmrshipping.com.eg",
+        phones: ["01119383101", "01553999935"]
+    },
+    
     terms: [
         "السعر ممكن يتغير حسب البنزين / Price may change based on fuel cost",
         "الأوردر القابل للكسر = مسؤولية العميل / Fragile items are customer's responsibility",
         "في خدمة VIP توصيل نفس اليوم / VIP same-day delivery service available",
         "يتم إضافة تكلفة بعد 5 كيلو / Extra charge applied beyond 5 km",
-        "في تعاقدات للشركات بأسعار خاصة / Corporate contracts with special rates"
+        "في تعاقدات للشركات بأسعار خاصة / Corporate contracts with special rates",
+        "تكلفة البيك أب: 10 جنيه على كل أوردر / Pickup fee: 10 EGP per order",
+        "نظام المرتجعات: الرفض = دفع الشحن كامل، أكثر من 3 = دفع نص الشحن / Returns policy"
     ]
 };
 
@@ -69,9 +103,9 @@ const ADMIN_PHONE = "201119383101";
 
 // 🔥 كلمات مفتاحية خاصة بالعملاء (وليس المسؤول)
 const CUSTOMER_KEYWORDS = [
-    '1', '2', '3', '4', '5', '6', 'قائمة', 'menu',
-    'سعر', 'شحن', 'توصيل', 'دفع', 'شروط', 'خدمة العملاء',
-    'price', 'shipping', 'delivery', 'payment', 'terms', 'support'
+    '1', '2', '3', '4', '5', '6', '7', 'قائمة', 'menu',
+    'سعر', 'شحن', 'توصيل', 'دفع', 'شروط', 'خدمة العملاء', 'باقة', 'باقات', 'مرتجع', 'مرتجعات',
+    'price', 'shipping', 'delivery', 'payment', 'terms', 'support', 'package', 'packages', 'return'
 ];
 
 // ==================== CACHE للـ timeouts ====================
@@ -152,6 +186,8 @@ ${companyData.shippingPrices.alexandria["75 جنيه"].join(' - ')}
 💰 90 جنيه / EGP:
 ${companyData.shippingPrices.alexandria["90 جنيه"].join(' - ')}
 
+📌 ملاحظة: البيك أب 10 جنيه على كل أوردر / Pickup fee: 10 EGP per order
+
 للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
         active: true
     },
@@ -212,6 +248,47 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
     },
     {
         id: 7,
+        keywords: ['7', '٧', 'باقة', 'باقات', 'الباقات', 'اسعار الباقات', 'عروض', 'باقات الشحن', 'أسعار الجديدة', 'package', 'packages', 'new prices', 'bundles', 'الأسعار الجديدة', 'الشحن الفردي', 'أسعار التاجر', 'مرتجعات', 'pickup', 'بيك اب'],
+        reply: `🟡 أسعار الشحنة الفردية / Individual Shipping Prices:
+• من الإبراهيمية للبحري: 60 جنيه
+• من الإبراهيمية لسيدي بشر: 65 جنيه
+• العجمي: 75 جنيه
+• العامرية - برج العرب: 90 جنيه
+
+📌 البيك أب: 10 جنيه على كل أوردر / Pickup fee: 10 EGP per order
+
+━━━━━━━━━━━━━━━━━━━━━
+
+🟡 باقات الشحن / Shipping Packages:
+• 10 أوردرات: 60 جنيه لكل أوردر
+• 20 أوردر: 55 جنيه لكل أوردر
+• 50 أوردر: 30 جنيه لكل أوردر
+
+━━━━━━━━━━━━━━━━━━━━━
+
+🟡 نظام المرتجعات / Returns Policy:
+• في حالة رفض العميل دفع الشحن: حضرتك بتدفع الشحن كامل
+• أكثر من 3 مرتجعات: بتدفع نص الشحن
+
+━━━━━━━━━━━━━━━━━━━━━
+
+🟡 أسعار التاجر / Merchant Prices:
+• من الإبراهيمية للبحري: 55 جنيه
+• من الإبراهيمية لسيدي بشر: 65 جنيه
+• العجمي: 75 جنيه
+• العامرية - برج العرب: 90 جنيه
+
+━━━━━━━━━━━━━━━━━━━━━
+
+🌐 بيانات التواصل / Contact Information:
+• الموقع: ${companyData.contactInfo.website}
+• الهاتف: ${companyData.contactInfo.phones.join(' | ')}
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+        active: true
+    },
+    {
+        id: 8,
         keywords: ['طلب شحن', 'شحنة', 'طلب', 'اوردر', 'اطلب', 'شراء', 'عايز أطلب', 'عايز اشتري', 'احجز', 'اريد شحن', 'اريد طلب', 'new order', 'place order', 'order', 'shipping request', 'send package', 'i want to ship', 'book', 'request shipping', 'create order'],
         reply: `🛍️ لطلب شحنة جديدة في النمر للشحن، يرجى إرسال / To place a new order, please send:
 
@@ -223,11 +300,13 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
 سيتم التواصل معك لتأكيد السعر وموعد الاستلام.
 We will contact you to confirm price and pickup time.
 
+📌 ملاحظة: البيك أب 10 جنيه على كل أوردر / Note: Pickup fee 10 EGP per order
+
 للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
         active: true
     },
     {
-        id: 8,
+        id: 9,
         keywords: ['vip', 'VIP', 'نفس اليوم', 'توصيل سريع', 'توصيل فوري', 'سريع', 'عاجل', 'خدمة vip', 'اسرع توصيل', 'same day', 'express', 'urgent', 'fast delivery', 'quick', 'priority', 'rapid'],
         reply: `🚚 خدمة VIP توصيل نفس اليوم في النمر للشحن / VIP Same Day Delivery:
 
@@ -239,7 +318,7 @@ We will contact you to confirm price and pickup time.
         active: true
     },
     {
-        id: 9,
+        id: 10,
         keywords: ['شكرا', 'ممتاز', 'تمام', 'شكراً', 'تسلم', 'الله يبارك فيك', 'حلو', 'جميل', 'تم', 'مشكور', 'thank', 'thanks', 'great', 'excellent', 'good', 'perfect', 'ok', 'awesome', 'nice', 'done'],
         reply: `🎉 شكراً لك على تواصلك مع النمر للشحن! / Thank you for contacting ELNMR Shipping!
 
@@ -250,7 +329,7 @@ We are always at your service. If you need any further assistance, just type 'me
         active: true
     },
     {
-        id: 10,
+        id: 11,
         keywords: ['عايز استفسر', 'عندي سؤال', 'ممكن اسأل', 'محتاج اعرف', 'عايز اعرف', 'عندكم', 'هل يوجد', 'متوفر', 'التفاصيل', 'ايه المميزات', 'بيشتغل ازاي', 'inquiry', 'question', 'information', 'details', 'what is', 'how to', 'tell me', 'i need to know', 'about', 'services'],
         reply: `📋 للاستفسار عن خدمات النمر للشحن / For inquiries about ELNMR Shipping services:
 
@@ -259,6 +338,7 @@ We are always at your service. If you need any further assistance, just type 'me
 • تخزين بضائع / Storage
 • تغليف / Packaging
 • خدمة VIP توصيل نفس اليوم / VIP Same Day Delivery
+• باقات شحن مخصصة للشركات / Custom shipping packages for businesses
 
 للحصول على معلومات محددة / For specific information:
 • اضغط 1 لأسعار داخل الإسكندرية / Press 1 for Alexandria prices
@@ -267,6 +347,22 @@ We are always at your service. If you need any further assistance, just type 'me
 • اضغط 4 لطرق الدفع / Press 4 for payment methods
 • اضغط 5 للشروط والسياسات / Press 5 for terms and policies
 • اضغط 6 للتواصل مع خدمة العملاء / Press 6 to contact customer service
+• اضغط 7 للباقات والأسعار الجديدة / Press 7 for packages & new prices
+
+للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+        active: true
+    },
+    {
+        id: 12,
+        keywords: ['تواصل', 'اتصال', 'رقم', 'تليفون', 'موبايل', 'واتساب', 'contact', 'phone', 'number', 'call', 'whatsapp', 'website', 'موقع'],
+        reply: `🌐 بيانات التواصل مع النمر للشحن / Contact Information:
+
+• الموقع الإلكتروني / Website: ${companyData.contactInfo.website}
+• أرقام الهاتف / Phone Numbers:
+  ${companyData.contactInfo.phones[0]}
+  ${companyData.contactInfo.phones[1]}
+
+• واتساب / WhatsApp: ${companyData.contactInfo.phones[1]}
 
 للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
         active: true
@@ -280,8 +376,8 @@ function findAutoReply(message) {
     console.log(`🔍 [${INSTANCE.name}] Searching for reply to: "${lowerMsg}"`);
     
     const numberMap = {
-        '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
-        '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6
+        '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
+        '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6, '٧': 7
     };
     
     if (numberMap[lowerMsg] !== undefined) {
