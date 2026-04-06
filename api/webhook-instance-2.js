@@ -14,6 +14,8 @@ const companyData = {
     services: "شحن – تخزين – تغليف داخل الإسكندرية",
     welcomeMessage: `🐯 أهلاً بيك في شركة النمر للشحن! / Welcome to ELNMR Shipping!
 
+نحن شركة النمر للشحن - لدينا مقر رسمي، وسجل تجاري، وبطاقة ضريبية، لضمان الثقة والالتزام في التعامل.
+
 من فضلك اختار الرقم المناسب 👇 / Please choose the appropriate number 👇
 
 1️⃣ أسعار الشحن داخل الإسكندرية / Alexandria shipping prices
@@ -22,8 +24,10 @@ const companyData = {
 4️⃣ طرق الدفع / Payment methods
 5️⃣ شروط الشحن / Shipping terms
 6️⃣ التحدث مع خدمة العملاء / Contact customer service
-7️⃣ الباقات والأسعار الجديدة / Packages & New Prices`,
-    
+7️⃣ الباقات والأسعار الجديدة / Packages & New Prices
+8️⃣ فرص عمل للمناديب / Job opportunities for couriers
+9️⃣ شروط التعامل مع وكلاء لورد / Lord agents terms`,
+
     deliveryTimes: {
         north: "داخل الوجه البحري: خلال 72 ساعة / Nile Delta: within 72 hours",
         south: "وجه قبلي: خلال 5 أيام / Upper Egypt: within 5 days",
@@ -72,9 +76,93 @@ const companyData = {
         }
     },
     
+    // فرص العمل للمناديب
+    jobOpportunities: {
+        title: "🔥 شركة النمر للشحن - فرصة شغل قوية للمناديب",
+        description: "لو بتدور على شغل ثابت أو دخل إضافي… فاتحين باب التقديم فورًا 👇",
+        systems: {
+            first: {
+                name: "✅ النظام الأول (مرتب ثابت):",
+                salary: "مرتب 5000ج 💰",
+                commission: "12 : 15ج عمولة على كل أوردر 📦"
+            },
+            second: {
+                name: "✅ النظام التاني (مرتب + عمولة أعلى):",
+                salary: "مرتب 4000ج 💰",
+                commission: "22ج عمولة على كل أوردر 📦"
+            },
+            third: {
+                name: "✅ النظام التالت (بالساعة):",
+                salary: "25ج في الساعة ⏱️",
+                commission: "5ج عمولة على كل أوردر 📦"
+            }
+        },
+        benefits: [
+            "✔️ شغل مستمر",
+            "✔️ أوردرات جاهزة يوميًا",
+            "✔️ فرصة تزود دخلك على حسب شغلك"
+        ],
+        contactPhones: ["01130491210", "01130491209", "01119383101"],
+        message: `🔥 شركة النمر للشحن - فرصة شغل قوية للمناديب
+
+لو بتدور على شغل ثابت أو دخل إضافي… فاتحين باب التقديم فورًا 👇
+
+✅ النظام الأول (مرتب ثابت):
+مرتب 5000ج 💰
+* 12 : 15ج عمولة على كل أوردر 📦
+
+✅ النظام التاني (مرتب + عمولة أعلى):
+مرتب 4000ج 💰
+* 22ج عمولة على كل أوردر 📦
+
+✅ النظام التالت (بالساعة):
+25ج في الساعة ⏱️
+* 5ج عمولة على كل أوردر 📦
+
+✔️ شغل مستمر
+✔️ أوردرات جاهزة يوميًا
+✔️ فرصة تزود دخلك على حسب شغلك
+
+📞 للتواصل:
+01130491210
+01130491209
+01119383101
+
+📩 ابعتلنا رسالة دلوقتي وابدأ شغل فورًا
+💪 فرصتك تبدأ وتكبر معانا`
+    },
+    
+    // شروط التعامل مع وكلاء لورد
+    lordAgentsTerms: {
+        agentFee: "40 جنيه لكل أوردر",
+        paymentSystems: {
+            first: {
+                name: "النظام الأول:",
+                description: "دفع مقدم لقيمة الأوردرات قبل الشحن."
+            },
+            second: {
+                name: "النظام الثاني (نظام تأميني):",
+                description: "دفع مبلغ تأمين 5000 جنيه عند بدء التعامل، ويتم استرداده كاملًا عند وقف التعامل."
+            }
+        },
+        message: `📋 شروط التعامل مع وكلاء لورد - شركة النمر للشحن
+
+• تكلفة الوكيل: 40 جنيه لكل أوردر
+
+أنظمة الدفع:
+1. النظام الأول:
+دفع مقدم لقيمة الأوردرات قبل الشحن.
+
+2. النظام الثاني (نظام تأميني):
+دفع مبلغ تأمين 5000 جنيه عند بدء التعامل،
+ويتم استرداده كاملًا عند وقف التعامل.
+
+للاستفسار، يرجى التواصل مع خدمة العملاء (اضغط 6)`
+    },
+    
     contactInfo: {
         website: "elnmrshipping.com.eg",
-        phones: ["01119383101", "01553999935"]
+        phones: ["01119383101", "01553999935", "01130491210", "01130491209"]
     },
     
     terms: [
@@ -103,9 +191,10 @@ const ADMIN_PHONE = "201119383101";
 
 // 🔥 كلمات مفتاحية خاصة بالعملاء (وليس المسؤول)
 const CUSTOMER_KEYWORDS = [
-    '1', '2', '3', '4', '5', '6', '7', 'قائمة', 'menu',
+    '1', '2', '3', '4', '5', '6', '7', '8', '9', 'قائمة', 'menu',
     'سعر', 'شحن', 'توصيل', 'دفع', 'شروط', 'خدمة العملاء', 'باقة', 'باقات', 'مرتجع', 'مرتجعات',
-    'price', 'shipping', 'delivery', 'payment', 'terms', 'support', 'package', 'packages', 'return'
+    'price', 'shipping', 'delivery', 'payment', 'terms', 'support', 'package', 'packages', 'return',
+    'مندوب', 'شغل', 'وكلاء', 'لورد', 'وكيل'
 ];
 
 // ==================== CACHE للـ timeouts ====================
@@ -128,21 +217,18 @@ async function setAutoTimeout(chatId) {
     }, TIMEOUT_DURATION);
 }
 
-// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول (behavior detection) - بدون شرط عدد الحروف
+// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول (behavior detection)
 function isMessageFromAdmin(message, isFromMe, chatId) {
-    // 1. إذا كانت fromMe = true → أكيد مني
     if (isFromMe) {
         console.log(`✅ Admin detected by fromMe flag`);
         return true;
     }
     
-    // 2. إذا كان الرقم هو رقم المسؤول
     if (chatId.includes(ADMIN_PHONE)) {
         console.log(`✅ Admin detected by phone number: ${ADMIN_PHONE}`);
         return true;
     }
     
-    // 3. إذا كانت الرسالة تحتوي على كلمات مفتاحية للعملاء → عميل
     const lowerMsg = message.toLowerCase();
     const hasCustomerKeyword = CUSTOMER_KEYWORDS.some(keyword => 
         lowerMsg.includes(keyword.toLowerCase())
@@ -153,7 +239,6 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
         return false;
     }
     
-    // 4. افتراضياً: إذا مرت كل الفحوصات، نعتبرها من العميل
     console.log(`✅ Customer detected by default - message: "${message}"`);
     return false;
 }
@@ -289,6 +374,18 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
     },
     {
         id: 8,
+        keywords: ['8', '٨', 'مندوب', 'شغل', 'فرصة عمل', 'وظيفة', 'توظيف', 'مرتب', 'عمولة', 'job', 'job opportunity', 'courier', 'delivery job', 'employment', 'work', 'salary', 'commission'],
+        reply: companyData.jobOpportunities.message,
+        active: true
+    },
+    {
+        id: 9,
+        keywords: ['9', '٩', 'وكيل', 'وكلاء', 'لورد', 'lord', 'agent', 'agents', 'تكلفة الوكيل', 'نظام تأميني', 'دفع مقدم'],
+        reply: companyData.lordAgentsTerms.message,
+        active: true
+    },
+    {
+        id: 10,
         keywords: ['طلب شحن', 'شحنة', 'طلب', 'اوردر', 'اطلب', 'شراء', 'عايز أطلب', 'عايز اشتري', 'احجز', 'اريد شحن', 'اريد طلب', 'new order', 'place order', 'order', 'shipping request', 'send package', 'i want to ship', 'book', 'request shipping', 'create order'],
         reply: `🛍️ لطلب شحنة جديدة في النمر للشحن، يرجى إرسال / To place a new order, please send:
 
@@ -306,7 +403,7 @@ We will contact you to confirm price and pickup time.
         active: true
     },
     {
-        id: 9,
+        id: 11,
         keywords: ['vip', 'VIP', 'نفس اليوم', 'توصيل سريع', 'توصيل فوري', 'سريع', 'عاجل', 'خدمة vip', 'اسرع توصيل', 'same day', 'express', 'urgent', 'fast delivery', 'quick', 'priority', 'rapid'],
         reply: `🚚 خدمة VIP توصيل نفس اليوم في النمر للشحن / VIP Same Day Delivery:
 
@@ -318,7 +415,7 @@ We will contact you to confirm price and pickup time.
         active: true
     },
     {
-        id: 10,
+        id: 12,
         keywords: ['شكرا', 'ممتاز', 'تمام', 'شكراً', 'تسلم', 'الله يبارك فيك', 'حلو', 'جميل', 'تم', 'مشكور', 'thank', 'thanks', 'great', 'excellent', 'good', 'perfect', 'ok', 'awesome', 'nice', 'done'],
         reply: `🎉 شكراً لك على تواصلك مع النمر للشحن! / Thank you for contacting ELNMR Shipping!
 
@@ -329,7 +426,7 @@ We are always at your service. If you need any further assistance, just type 'me
         active: true
     },
     {
-        id: 11,
+        id: 13,
         keywords: ['عايز استفسر', 'عندي سؤال', 'ممكن اسأل', 'محتاج اعرف', 'عايز اعرف', 'عندكم', 'هل يوجد', 'متوفر', 'التفاصيل', 'ايه المميزات', 'بيشتغل ازاي', 'inquiry', 'question', 'information', 'details', 'what is', 'how to', 'tell me', 'i need to know', 'about', 'services'],
         reply: `📋 للاستفسار عن خدمات النمر للشحن / For inquiries about ELNMR Shipping services:
 
@@ -348,19 +445,20 @@ We are always at your service. If you need any further assistance, just type 'me
 • اضغط 5 للشروط والسياسات / Press 5 for terms and policies
 • اضغط 6 للتواصل مع خدمة العملاء / Press 6 to contact customer service
 • اضغط 7 للباقات والأسعار الجديدة / Press 7 for packages & new prices
+• اضغط 8 لفرص العمل للمناديب / Press 8 for job opportunities
+• اضغط 9 لشروط وكلاء لورد / Press 9 for Lord agents terms
 
 للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
         active: true
     },
     {
-        id: 12,
+        id: 14,
         keywords: ['تواصل', 'اتصال', 'رقم', 'تليفون', 'موبايل', 'واتساب', 'contact', 'phone', 'number', 'call', 'whatsapp', 'website', 'موقع'],
         reply: `🌐 بيانات التواصل مع النمر للشحن / Contact Information:
 
 • الموقع الإلكتروني / Website: ${companyData.contactInfo.website}
 • أرقام الهاتف / Phone Numbers:
-  ${companyData.contactInfo.phones[0]}
-  ${companyData.contactInfo.phones[1]}
+  ${companyData.contactInfo.phones.join('\n  ')}
 
 • واتساب / WhatsApp: ${companyData.contactInfo.phones[1]}
 
@@ -376,8 +474,8 @@ function findAutoReply(message) {
     console.log(`🔍 [${INSTANCE.name}] Searching for reply to: "${lowerMsg}"`);
     
     const numberMap = {
-        '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
-        '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6, '٧': 7
+        '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+        '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6, '٧': 7, '٨': 8, '٩': 9
     };
     
     if (numberMap[lowerMsg] !== undefined) {
@@ -490,14 +588,11 @@ module.exports = async (req, res) => {
     console.log(`💬 Message: ${message}`);
     console.log(`👤 Is from me (Wapilot flag): ${isFromMe}`);
     
-    // حفظ المحادثة
     await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
     
-    // 🔥🔥🔥 ADVANCED ADMIN DETECTION SYSTEM 🔥🔥🔥
     const isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
     console.log(`👑 Is Admin (detected): ${isAdmin}`);
     
-    // 1. إذا كانت الرسالة من المسؤول
     if (isAdmin) {
         await saveUserState(INSTANCE_ID, chatId, "human");
         await setAutoTimeout(chatId);
@@ -506,17 +601,14 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human", detected: "admin" });
     }
     
-    // استرجاع حالة العميل
     const currentMode = await getUserState(INSTANCE_ID, chatId);
     console.log(`📊 Current mode for ${chatId}: ${currentMode || "bot"}`);
     
-    // 2. إذا العميل في وضع human (البوت يسكت)
     if (currentMode === "human") {
         console.log(`🤫 [${INSTANCE.name}] Human mode active, bot silent (waiting for admin)`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    // 3. طلب خدمة العملاء (الرقم 6)
     const isCustomerServiceRequest = (
         message.trim() === '6' || 
         message.trim() === '٦' ||
@@ -545,7 +637,6 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human" });
     }
     
-    // 4. طلب العودة للبوت (قائمة أو menu)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
     if (isMenuRequest && currentMode === "human") {
         if (timeouts[chatId]) {
@@ -557,7 +648,6 @@ module.exports = async (req, res) => {
         console.log(`📊 MODE: bot`);
     }
     
-    // البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
