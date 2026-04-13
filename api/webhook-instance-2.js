@@ -209,34 +209,45 @@ async function setAutoTimeout(chatId) {
     }, TIMEOUT_DURATION);
 }
 
-// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول (behavior detection)
+// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول أو تحتوي على trigger لإيقاف البوت
 function isMessageFromAdmin(message, isFromMe, chatId) {
-    // ✅ الأول: نتأكد إذا كان من رقم المسؤول (لو ظهر الرقم الحقيقي)
+    // تنظيف رقم المسؤول للمقارنة
     let cleanChatId = chatId.replace('@c.us', '').replace('@lid', '').replace('+', '').replace(/[^0-9]/g, '');
     let cleanAdminPhone = ADMIN_PHONE;
-    
+
+    const lowerMsg = message.toLowerCase();
+
+    // 🔥 1. تريجرات إيقاف البوت (كلمات تدل على إنك هترد يدوياً)
+    const stopTriggers = [
+        "اهلا وسهلا يا فندم",
+        "مع حضرتك شركه النمر",
+        "هرد عليك",
+        "ثواني وهتابع معاك",
+        "انا معاك",
+        "دقيقه ارد عليك",
+        "استنى ارد"
+    ];
+
+    // لو الرسالة فيها أي جملة من التريجرات، نوقف البوت
+    if (stopTriggers.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
+        console.log(`🔥 Manual stop trigger detected. Stopping bot.`);
+        return true;
+    }
+
+    // 🔥 2. رقم المسؤول (لو ظهر الرقم الحقيقي)
     if (cleanChatId === cleanAdminPhone) {
         console.log(`✅ Admin detected by phone number: ${ADMIN_PHONE}`);
         return true;
     }
-    
-    // ✅ الثاني: if fromMe flag
+
+    // 🔥 3. الردود اللي انت بتبعتها من البوت نفسه (fromMe flag)
     if (isFromMe) {
         console.log(`✅ Admin detected by fromMe flag`);
         return true;
     }
-    
-    // ✅ الثالث: كلمة سر المسؤول
-    const ADMIN_SECRET_PHRASE = "مع حضرتك شركه النمر";
-    const lowerMsg = message.toLowerCase();
-    
-    if (lowerMsg.includes(ADMIN_SECRET_PHRASE.toLowerCase())) {
-        console.log(`✅ Admin detected by secret phrase: "${ADMIN_SECRET_PHRASE}"`);
-        return true;
-    }
-    
-    // ✅ الرابع: لو مفيش ولا حاجة من دول، يبقى عميل
-    console.log(`✅ Customer detected - message: "${message}"`);
+
+    // لو مفيش أي حاجة من اللي فات، يبقى عميل عادي
+    console.log(`👤 Customer detected - message: "${message}"`);
     return false;
 }
 
@@ -548,9 +559,8 @@ module.exports = async (req, res) => {
             instance_id: INSTANCE.id,
             phone: INSTANCE.phoneNumber,
             admin_phone: ADMIN_PHONE,
-            admin_secret: "مع حضرتك شركه النمر",
             storage: 'Firebase',
-            message: 'Webhook is working with Firebase and Secret Phrase Detection!',
+            message: 'Webhook is working with Manual Stop Triggers!',
             timestamp: new Date().toISOString()
         });
     }
@@ -588,25 +598,28 @@ module.exports = async (req, res) => {
     
     await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
     
+    // 🔥🔥🔥 أهم حاجة: فحص المسؤول والتريجرات أول حاجة قبل أي رد تلقائي
     const isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
     console.log(`👑 Is Admin (detected): ${isAdmin}`);
     
     if (isAdmin) {
         await saveUserState(INSTANCE_ID, chatId, "human");
         await setAutoTimeout(chatId);
-        console.log(`👨‍💼 [${INSTANCE.name}] 🛑 BOT STOPPED for user ${chatId} for 30 minutes (admin message detected)`);
+        console.log(`👨‍💼 [${INSTANCE.name}] 🛑 BOT STOPPED for user ${chatId} for 30 minutes`);
         console.log(`📊 MODE: human`);
         return res.status(200).json({ success: true, mode: "human", detected: "admin" });
     }
     
+    // 🔥 نتأكد إذا كان المستخدم في وضع human (البوت ساكت)
     const currentMode = await getUserState(INSTANCE_ID, chatId);
     console.log(`📊 Current mode for ${chatId}: ${currentMode || "bot"}`);
     
     if (currentMode === "human") {
-        console.log(`🤫 [${INSTANCE.name}] Human mode active, bot silent (waiting for admin)`);
+        console.log(`🤫 [${INSTANCE.name}] Human mode active, bot silent`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
+    // 🔥 فحص طلب خدمة العملاء
     const isCustomerServiceRequest = (
         message.trim() === '6' || 
         message.trim() === '٦' ||
@@ -635,6 +648,7 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human" });
     }
     
+    // 🔥 فحص طلب الرجوع للقائمة (لإعادة تفعيل البوت)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
     if (isMenuRequest && currentMode === "human") {
         if (timeouts[chatId]) {
@@ -646,6 +660,7 @@ module.exports = async (req, res) => {
         console.log(`📊 MODE: bot`);
     }
     
+    // 🔥 البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
