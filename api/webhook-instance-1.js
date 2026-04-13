@@ -185,8 +185,6 @@ const INSTANCE = {
 
 // 🔥 رقم هاتف المسؤول
 const ADMIN_PHONE = "201119383101";
-// 🔥 كلمة سر المسؤول
-const ADMIN_SECRET_PHRASE = "مع حضرتك شركه النمر";
 
 // ==================== CACHE للـ timeouts ====================
 const timeouts = {};
@@ -208,31 +206,44 @@ async function setAutoTimeout(chatId) {
     }, TIMEOUT_DURATION);
 }
 
-// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول
+// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول أو تحتوي على trigger لإيقاف البوت
 function isMessageFromAdmin(message, isFromMe, chatId) {
-    // ✅ الأول: نتأكد إذا كان من رقم المسؤول (لو ظهر الرقم الحقيقي)
+    // تنظيف رقم المسؤول للمقارنة
     let cleanChatId = chatId.replace('@c.us', '').replace('@lid', '').replace('+', '').replace(/[^0-9]/g, '');
     let cleanAdminPhone = ADMIN_PHONE;
-    
+
+    const lowerMsg = message.toLowerCase();
+
+    // 🔥 1. تريجرات إيقاف البوت (كلمات تدل على إنك هترد يدوياً)
+    const stopTriggers = [
+        "اهلا وسهلا يا فندم",
+        "مع حضرتك شركه النمر",
+        "هرد عليك",
+        "ثواني وهتابع معاك",
+        "انا معاك",
+        "دقيقه ارد عليك",
+        "استنى ارد"
+    ];
+
+    // لو الرسالة فيها أي جملة من التريجرات، نوقف البوت
+    if (stopTriggers.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
+        console.log(`🔥 Manual stop trigger detected. Stopping bot.`);
+        return true;
+    }
+
+    // 🔥 2. رقم المسؤول (لو ظهر الرقم الحقيقي)
     if (cleanChatId === cleanAdminPhone) {
         console.log(`✅ Admin detected by phone number: ${ADMIN_PHONE}`);
         return true;
     }
-    
-    // ✅ الثاني: if fromMe flag (الردود اللي أنت بتبعتها من البوت نفسه)
+
+    // 🔥 3. الردود اللي انت بتبعتها من البوت نفسه (fromMe flag)
     if (isFromMe) {
         console.log(`✅ Admin detected by fromMe flag`);
         return true;
     }
-    
-    // ✅ الثالث: كلمة سر المسؤول
-    const lowerMsg = message.toLowerCase();
-    if (lowerMsg.includes(ADMIN_SECRET_PHRASE.toLowerCase())) {
-        console.log(`✅ Admin detected by secret phrase: "${ADMIN_SECRET_PHRASE}"`);
-        return true;
-    }
-    
-    // ✅ الرابع: لو مفيش ولا حاجة من دول، يبقى عميل
+
+    // لو مفيش أي حاجة من اللي فات، يبقى عميل عادي
     console.log(`👤 Customer detected - message: "${message}"`);
     return false;
 }
@@ -545,9 +556,8 @@ module.exports = async (req, res) => {
             instance_id: INSTANCE.id,
             phone: INSTANCE.phoneNumber,
             admin_phone: ADMIN_PHONE,
-            admin_secret: ADMIN_SECRET_PHRASE,
             storage: 'Firebase',
-            message: 'Webhook is working with Secret Phrase Detection!',
+            message: 'Webhook is working with Manual Stop Triggers!',
             timestamp: new Date().toISOString()
         });
     }
@@ -585,7 +595,7 @@ module.exports = async (req, res) => {
     
     await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
     
-    // 🔥🔥🔥 أهم حاجة: فحص المسؤول أول حاجة قبل أي رد تلقائي
+    // 🔥🔥🔥 أهم حاجة: فحص المسؤول والتريجرات أول حاجة قبل أي رد تلقائي
     const isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
     console.log(`👑 Is Admin (detected): ${isAdmin}`);
     
