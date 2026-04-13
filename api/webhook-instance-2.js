@@ -189,14 +189,6 @@ const INSTANCE = {
 // 🔥 رقم هاتف المسؤول
 const ADMIN_PHONE = "201119383101";
 
-// 🔥 كلمات مفتاحية خاصة بالعملاء (وليس المسؤول)
-const CUSTOMER_KEYWORDS = [
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', 'قائمة', 'menu',
-    'سعر', 'شحن', 'توصيل', 'دفع', 'شروط', 'خدمة العملاء', 'باقة', 'باقات', 'مرتجع', 'مرتجعات',
-    'price', 'shipping', 'delivery', 'payment', 'terms', 'support', 'package', 'packages', 'return',
-    'مندوب', 'شغل', 'وكلاء', 'لورد', 'وكيل'
-];
-
 // ==================== CACHE للـ timeouts ====================
 const timeouts = {};
 const TIMEOUT_DURATION = 30 * 60 * 1000;
@@ -217,29 +209,26 @@ async function setAutoTimeout(chatId) {
     }, TIMEOUT_DURATION);
 }
 
-// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول (behavior detection)
+// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول (behavior detection) - تم التعديل
 function isMessageFromAdmin(message, isFromMe, chatId) {
+    // ✅ الأول: نتأكد إذا كان من رقم المسؤول
+    // تنظيف رقم المسؤول للمقارنة
+    let cleanAdminPhone = ADMIN_PHONE;
+    let cleanChatId = chatId.replace('@c.us', '').replace('+', '').replace(/[^0-9]/g, '');
+    
+    if (cleanChatId === cleanAdminPhone) {
+        console.log(`✅ Admin detected by phone number: ${ADMIN_PHONE}`);
+        return true;
+    }
+    
+    // ✅ الثاني: if fromMe flag
     if (isFromMe) {
         console.log(`✅ Admin detected by fromMe flag`);
         return true;
     }
     
-    if (chatId.includes(ADMIN_PHONE)) {
-        console.log(`✅ Admin detected by phone number: ${ADMIN_PHONE}`);
-        return true;
-    }
-    
-    const lowerMsg = message.toLowerCase();
-    const hasCustomerKeyword = CUSTOMER_KEYWORDS.some(keyword => 
-        lowerMsg.includes(keyword.toLowerCase())
-    );
-    
-    if (hasCustomerKeyword) {
-        console.log(`✅ Customer detected - has customer keyword`);
-        return false;
-    }
-    
-    console.log(`✅ Customer detected by default - message: "${message}"`);
+    // ✅ الثالث: لو مفيش ولا حاجة من دول، يبقى عميل
+    console.log(`✅ Customer detected - message: "${message}"`);
     return false;
 }
 
