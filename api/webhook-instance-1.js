@@ -185,6 +185,8 @@ const INSTANCE = {
 
 // 🔥 رقم هاتف المسؤول
 const ADMIN_PHONE = "201119383101";
+// 🔥 كلمة سر المسؤول
+const ADMIN_SECRET_PHRASE = "مع حضرتك شركه النمر";
 
 // ==================== CACHE للـ timeouts ====================
 const timeouts = {};
@@ -206,7 +208,7 @@ async function setAutoTimeout(chatId) {
     }, TIMEOUT_DURATION);
 }
 
-// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول (behavior detection)
+// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول
 function isMessageFromAdmin(message, isFromMe, chatId) {
     // ✅ الأول: نتأكد إذا كان من رقم المسؤول (لو ظهر الرقم الحقيقي)
     let cleanChatId = chatId.replace('@c.us', '').replace('@lid', '').replace('+', '').replace(/[^0-9]/g, '');
@@ -217,23 +219,21 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
         return true;
     }
     
-    // ✅ الثاني: if fromMe flag
+    // ✅ الثاني: if fromMe flag (الردود اللي أنت بتبعتها من البوت نفسه)
     if (isFromMe) {
         console.log(`✅ Admin detected by fromMe flag`);
         return true;
     }
     
     // ✅ الثالث: كلمة سر المسؤول
-    const ADMIN_SECRET_PHRASE = "مع حضرتك شركه النمر";
     const lowerMsg = message.toLowerCase();
-    
     if (lowerMsg.includes(ADMIN_SECRET_PHRASE.toLowerCase())) {
         console.log(`✅ Admin detected by secret phrase: "${ADMIN_SECRET_PHRASE}"`);
         return true;
     }
     
     // ✅ الرابع: لو مفيش ولا حاجة من دول، يبقى عميل
-    console.log(`✅ Customer detected - message: "${message}"`);
+    console.log(`👤 Customer detected - message: "${message}"`);
     return false;
 }
 
@@ -545,9 +545,9 @@ module.exports = async (req, res) => {
             instance_id: INSTANCE.id,
             phone: INSTANCE.phoneNumber,
             admin_phone: ADMIN_PHONE,
-            admin_secret: "مع حضرتك شركه النمر",
+            admin_secret: ADMIN_SECRET_PHRASE,
             storage: 'Firebase',
-            message: 'Webhook is working with Firebase and Secret Phrase Detection!',
+            message: 'Webhook is working with Secret Phrase Detection!',
             timestamp: new Date().toISOString()
         });
     }
@@ -585,25 +585,28 @@ module.exports = async (req, res) => {
     
     await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
     
+    // 🔥🔥🔥 أهم حاجة: فحص المسؤول أول حاجة قبل أي رد تلقائي
     const isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
     console.log(`👑 Is Admin (detected): ${isAdmin}`);
     
     if (isAdmin) {
         await saveUserState(INSTANCE_ID, chatId, "human");
         await setAutoTimeout(chatId);
-        console.log(`👨‍💼 [${INSTANCE.name}] 🛑 BOT STOPPED for user ${chatId} for 30 minutes (admin message detected)`);
+        console.log(`👨‍💼 [${INSTANCE.name}] 🛑 BOT STOPPED for user ${chatId} for 30 minutes`);
         console.log(`📊 MODE: human`);
         return res.status(200).json({ success: true, mode: "human", detected: "admin" });
     }
     
+    // 🔥 نتأكد إذا كان المستخدم في وضع human (البوت ساكت)
     const currentMode = await getUserState(INSTANCE_ID, chatId);
     console.log(`📊 Current mode for ${chatId}: ${currentMode || "bot"}`);
     
     if (currentMode === "human") {
-        console.log(`🤫 [${INSTANCE.name}] Human mode active, bot silent (waiting for admin)`);
+        console.log(`🤫 [${INSTANCE.name}] Human mode active, bot silent`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
+    // 🔥 فحص طلب خدمة العملاء
     const isCustomerServiceRequest = (
         message.trim() === '6' || 
         message.trim() === '٦' ||
@@ -632,6 +635,7 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human" });
     }
     
+    // 🔥 فحص طلب الرجوع للقائمة (لإعادة تفعيل البوت)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
     if (isMenuRequest && currentMode === "human") {
         if (timeouts[chatId]) {
@@ -643,6 +647,7 @@ module.exports = async (req, res) => {
         console.log(`📊 MODE: bot`);
     }
     
+    // 🔥 البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
