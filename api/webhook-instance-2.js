@@ -209,12 +209,11 @@ async function setAutoTimeout(chatId) {
     }, TIMEOUT_DURATION);
 }
 
-// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول (behavior detection) - تم التعديل
+// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول (behavior detection)
 function isMessageFromAdmin(message, isFromMe, chatId) {
-    // ✅ الأول: نتأكد إذا كان من رقم المسؤول
-    // تنظيف رقم المسؤول للمقارنة
+    // ✅ الأول: نتأكد إذا كان من رقم المسؤول (لو ظهر الرقم الحقيقي)
+    let cleanChatId = chatId.replace('@c.us', '').replace('@lid', '').replace('+', '').replace(/[^0-9]/g, '');
     let cleanAdminPhone = ADMIN_PHONE;
-    let cleanChatId = chatId.replace('@c.us', '').replace('+', '').replace(/[^0-9]/g, '');
     
     if (cleanChatId === cleanAdminPhone) {
         console.log(`✅ Admin detected by phone number: ${ADMIN_PHONE}`);
@@ -227,7 +226,16 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
         return true;
     }
     
-    // ✅ الثالث: لو مفيش ولا حاجة من دول، يبقى عميل
+    // ✅ الثالث: كلمة سر المسؤول
+    const ADMIN_SECRET_PHRASE = "مع حضرتك شركه النمر";
+    const lowerMsg = message.toLowerCase();
+    
+    if (lowerMsg.includes(ADMIN_SECRET_PHRASE.toLowerCase())) {
+        console.log(`✅ Admin detected by secret phrase: "${ADMIN_SECRET_PHRASE}"`);
+        return true;
+    }
+    
+    // ✅ الرابع: لو مفيش ولا حاجة من دول، يبقى عميل
     console.log(`✅ Customer detected - message: "${message}"`);
     return false;
 }
@@ -540,8 +548,9 @@ module.exports = async (req, res) => {
             instance_id: INSTANCE.id,
             phone: INSTANCE.phoneNumber,
             admin_phone: ADMIN_PHONE,
+            admin_secret: "مع حضرتك شركه النمر",
             storage: 'Firebase',
-            message: 'Webhook is working with Firebase and Advanced Admin Detection!',
+            message: 'Webhook is working with Firebase and Secret Phrase Detection!',
             timestamp: new Date().toISOString()
         });
     }
