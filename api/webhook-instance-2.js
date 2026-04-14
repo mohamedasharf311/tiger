@@ -50,7 +50,6 @@ const companyData = {
         }
     },
     
-    // الأسعار الجديدة
     newPrices: {
         individual: {
             "60 جنيه": "من الإبراهيمية للبحري",
@@ -76,7 +75,6 @@ const companyData = {
         }
     },
     
-    // فرص العمل للمناديب
     jobOpportunities: {
         title: "🔥 شركة النمر للشحن - فرصة شغل قوية للمناديب",
         description: "لو بتدور على شغل ثابت أو دخل إضافي… فاتحين باب التقديم فورًا 👇",
@@ -132,7 +130,6 @@ const companyData = {
 💪 فرصتك تبدأ وتكبر معانا`
     },
     
-    // شروط التعامل مع وكلاء لورد
     lordAgentsTerms: {
         agentFee: "40 جنيه لكل أوردر",
         paymentSystems: {
@@ -211,13 +208,11 @@ async function setAutoTimeout(chatId) {
 
 // 🔥 دالة لكشف إذا كانت الرسالة من المسؤول أو تحتوي على trigger لإيقاف البوت
 function isMessageFromAdmin(message, isFromMe, chatId) {
-    // تنظيف رقم المسؤول للمقارنة
     let cleanChatId = chatId.replace('@c.us', '').replace('@lid', '').replace('+', '').replace(/[^0-9]/g, '');
     let cleanAdminPhone = ADMIN_PHONE;
 
     const lowerMsg = message.toLowerCase();
 
-    // 🔥 1. تريجرات إيقاف البوت (كلمات تدل على إنك هترد يدوياً)
     const stopTriggers = [
         "اهلا وسهلا يا فندم",
         "مع حضرتك شركه النمر",
@@ -228,25 +223,21 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
         "استنى ارد"
     ];
 
-    // لو الرسالة فيها أي جملة من التريجرات، نوقف البوت
     if (stopTriggers.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
         console.log(`🔥 Manual stop trigger detected. Stopping bot.`);
         return true;
     }
 
-    // 🔥 2. رقم المسؤول (لو ظهر الرقم الحقيقي)
     if (cleanChatId === cleanAdminPhone) {
         console.log(`✅ Admin detected by phone number: ${ADMIN_PHONE}`);
         return true;
     }
 
-    // 🔥 3. الردود اللي انت بتبعتها من البوت نفسه (fromMe flag)
     if (isFromMe) {
         console.log(`✅ Admin detected by fromMe flag`);
         return true;
     }
 
-    // لو مفيش أي حاجة من اللي فات، يبقى عميل عادي
     console.log(`👤 Customer detected - message: "${message}"`);
     return false;
 }
@@ -598,7 +589,6 @@ module.exports = async (req, res) => {
     
     await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
     
-    // 🔥🔥🔥 أهم حاجة: فحص المسؤول والتريجرات أول حاجة قبل أي رد تلقائي
     const isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
     console.log(`👑 Is Admin (detected): ${isAdmin}`);
     
@@ -610,7 +600,6 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human", detected: "admin" });
     }
     
-    // 🔥 نتأكد إذا كان المستخدم في وضع human (البوت ساكت)
     const currentMode = await getUserState(INSTANCE_ID, chatId);
     console.log(`📊 Current mode for ${chatId}: ${currentMode || "bot"}`);
     
@@ -619,7 +608,6 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    // 🔥 فحص طلب خدمة العملاء
     const isCustomerServiceRequest = (
         message.trim() === '6' || 
         message.trim() === '٦' ||
@@ -648,7 +636,6 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human" });
     }
     
-    // 🔥 فحص طلب الرجوع للقائمة (لإعادة تفعيل البوت)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
     if (isMenuRequest && currentMode === "human") {
         if (timeouts[chatId]) {
@@ -660,7 +647,6 @@ module.exports = async (req, res) => {
         console.log(`📊 MODE: bot`);
     }
     
-    // 🔥 البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
