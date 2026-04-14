@@ -51,7 +51,6 @@ const companyData = {
         }
     },
     
-    // الأسعار الجديدة
     newPrices: {
         individual: {
             "60 جنيه": "من الإبراهيمية للبحري",
@@ -77,7 +76,6 @@ const companyData = {
         }
     },
     
-    // فرص العمل للمناديب
     jobOpportunities: {
         title: "🔥 شركة النمر للشحن - فرصة شغل قوية للمناديب",
         description: "لو بتدور على شغل ثابت أو دخل إضافي… فاتحين باب التقديم فورًا 👇",
@@ -133,7 +131,6 @@ const companyData = {
 💪 فرصتك تبدأ وتكبر معانا`
     },
     
-    // شروط التعامل مع وكلاء لورد
     lordAgentsTerms: {
         agentFee: "40 جنيه لكل أوردر",
         paymentSystems: {
@@ -187,6 +184,7 @@ const INSTANCE = {
     active: true
 };
 
+
 // 🔥 رقم هاتف المسؤول
 const ADMIN_PHONE = "201119383101";
 
@@ -194,8 +192,18 @@ const ADMIN_PHONE = "201119383101";
 const timeouts = {};
 const TIMEOUT_DURATION = 30 * 60 * 1000;
 
-// 🔥🔥🔥 تخزين آخر رسالة تم فحصها لكل عميل (عشان منفحصش نفس الرسالة مرتين)
+// 🔥🔥🔥 تخزين آخر رسالة تم فحصها لكل عميل
 const lastCheckedMessage = {};
+
+// 🔥🔥🔥 تنظيف الكاش كل دقيقة
+setInterval(() => {
+    const now = Date.now();
+    for (let key in lastCheckedMessage) {
+        if (now - lastCheckedMessage[key] > 5 * 60 * 1000) {
+            delete lastCheckedMessage[key];
+        }
+    }
+}, 60 * 1000);
 
 async function setAutoTimeout(chatId) {
     if (timeouts[chatId]) {
@@ -213,7 +221,7 @@ async function setAutoTimeout(chatId) {
     }, TIMEOUT_DURATION);
 }
 
-// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول أو تحتوي على trigger لإيقاف البوت
+// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول أو تحتوي على trigger
 function isMessageFromAdmin(message, isFromMe, chatId) {
     let cleanChatId = chatId.replace('@c.us', '').replace('@lid', '').replace('+', '').replace(/[^0-9]/g, '');
     let cleanAdminPhone = ADMIN_PHONE;
@@ -248,32 +256,16 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
     return false;
 }
 
-// 🔥🔥🔥 دالة جديدة: تفحص Firebase كل شوية وتشوف لو فيه رسالة جديدة فيها كلمة سر
+// 🔥🔥🔥 فحص Firebase لآخر 50 رسالة والبحث عن كلمة السر في رسائل المسؤول
 async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
     try {
-        // نجيب آخر 5 رسايل للعميل ده
-        const messages = await getUserMessages(INSTANCE_ID, cleanNumber, 5);
+        // نجيب آخر 50 رسالة للعميل ده
+        const messages = await getUserMessages(INSTANCE_ID, cleanNumber, 50);
         
         if (!messages || messages.length === 0) return false;
         
-        // نجيب آخر رسالة (الأحدث)
-        const lastMessage = messages[messages.length - 1];
+        console.log(`🔍 [Firebase Check] Got ${messages.length} messages for ${cleanNumber}`);
         
-        // لو الرسالة دي من العميل (fromMe: false) - يعني العميل هو اللي باعتها
-        // واحنا عايزين نشوف رسايل المسؤول (fromMe: true)
-        if (lastMessage.fromMe !== true) return false;
-        
-        // نتأكد إننا مفحصناش الرسالة دي قبل كده
-        const messageKey = `${cleanNumber}_${lastMessage.timestamp}`;
-        if (lastCheckedMessage[messageKey]) return false;
-        
-        // نعلم إننا فحصنا الرسالة دي
-        lastCheckedMessage[messageKey] = true;
-        
-        console.log(`🔍 [Firebase Check] Checking message from ${cleanNumber}: "${lastMessage.message?.substring(0, 50)}..."`);
-        
-        // نفحص لو فيها كلمة سر
-        const lowerMsg = (lastMessage.message || '').toLowerCase();
         const stopTriggers = [
             "اهلا وسهلا يا فندم",
             "مع حضرتك شركه النمر",
@@ -284,9 +276,35 @@ async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
             "استنى ارد"
         ];
         
-        if (stopTriggers.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
-            console.log(`🔥🔥🔥 [Firebase Check] SECRET PHRASE DETECTED for ${cleanNumber}! Stopping bot!`);
-            return true;
+        // نلف على كل الرسايل من الأحدث للأقدم
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            
+            // 🔥 المهم: ندور في رسائل المسؤول (fromMe: true) بس
+            // رسائل البوت التلقائية ممكن تكون fromMe: true برضو، لكن رسائلك أنت اللي فيها كلمة السر
+            if (msg.fromMe !== true) continue;
+            
+            const messageKey = `${cleanNumber}_${msg.timestamp}`;
+            
+            // لو فحصناها قبل كده، skip
+            if (lastCheckedMessage[messageKey]) continue;
+            
+            // نخزن وقت الفحص
+            lastCheckedMessage[messageKey] = Date.now();
+            
+            const msgText = msg.message || '';
+            
+            // نتأكد إنها مش رسالة تلقائية من البوت (اختياري)
+            // لو عايز تفحص رسائل معينة بس، تقدر تضيف فلتر هنا
+            
+            console.log(`🔍 [Firebase Check] Checking admin message: "${msgText.substring(0, 50)}..."`);
+            
+            const lowerMsg = msgText.toLowerCase();
+            
+            if (stopTriggers.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
+                console.log(`🔥🔥🔥 [Firebase Check] SECRET PHRASE DETECTED! Message: "${msgText.substring(0, 100)}"`);
+                return true;
+            }
         }
         
         return false;
@@ -605,7 +623,7 @@ module.exports = async (req, res) => {
             phone: INSTANCE.phoneNumber,
             admin_phone: ADMIN_PHONE,
             storage: 'Firebase',
-            message: 'Webhook is working with Firebase Polling!',
+            message: 'Webhook is working with Full Conversation Scan (50 messages)!',
             timestamp: new Date().toISOString()
         });
     }
@@ -643,11 +661,12 @@ module.exports = async (req, res) => {
     
     await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
     
-    // 🔥🔥🔥 الأول: نتأكد من Webhook العادي
+    // 🔥🔥🔥 فحص Webhook العادي
     let isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
     
-    // 🔥🔥🔥 الثاني: لو مش Admin، نفحص Firebase (عشان رسايل المسؤول اللي مش بتوصل via Webhook)
+    // 🔥🔥🔥 فحص Firebase لآخر 50 رسالة
     if (!isAdmin) {
+        console.log(`🔍 [Firebase] Scanning last 50 messages for admin secret...`);
         isAdmin = await checkFirebaseForAdminMessage(chatId, cleanNumber);
     }
     
