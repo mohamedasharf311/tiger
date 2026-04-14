@@ -5,7 +5,8 @@ const {
     deleteUserState, 
     cleanupExpiredUsers,
     saveMessage,
-    getMessagesStats
+    getMessagesStats,
+    getUserMessages
 } = require('./firebase-config');
 
 // ==================== COMPANY DATA ====================
@@ -190,6 +191,9 @@ const ADMIN_PHONE = "201119383101";
 const timeouts = {};
 const TIMEOUT_DURATION = 30 * 60 * 1000;
 
+// 🔥🔥🔥 تخزين آخر رسالة تم فحصها لكل عميل (عشان منفحصش نفس الرسالة مرتين)
+const lastCheckedMessage = {};
+
 async function setAutoTimeout(chatId) {
     if (timeouts[chatId]) {
         clearTimeout(timeouts[chatId]);
@@ -208,13 +212,11 @@ async function setAutoTimeout(chatId) {
 
 // 🔥 دالة لكشف إذا كانت الرسالة من المسؤول أو تحتوي على trigger لإيقاف البوت
 function isMessageFromAdmin(message, isFromMe, chatId) {
-    // تنظيف رقم المسؤول للمقارنة
     let cleanChatId = chatId.replace('@c.us', '').replace('@lid', '').replace('+', '').replace(/[^0-9]/g, '');
     let cleanAdminPhone = ADMIN_PHONE;
 
     const lowerMsg = message.toLowerCase();
 
-    // 🔥 1. تريجرات إيقاف البوت (كلمات تدل على إنك هترد يدوياً)
     const stopTriggers = [
         "اهلا وسهلا يا فندم",
         "مع حضرتك شركه النمر",
@@ -225,27 +227,70 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
         "استنى ارد"
     ];
 
-    // لو الرسالة فيها أي جملة من التريجرات، نوقف البوت
     if (stopTriggers.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
         console.log(`🔥 Manual stop trigger detected. Stopping bot.`);
         return true;
     }
 
-    // 🔥 2. رقم المسؤول (لو ظهر الرقم الحقيقي)
     if (cleanChatId === cleanAdminPhone) {
         console.log(`✅ Admin detected by phone number: ${ADMIN_PHONE}`);
         return true;
     }
 
-    // 🔥 3. الردود اللي انت بتبعتها من البوت نفسه (fromMe flag)
     if (isFromMe) {
         console.log(`✅ Admin detected by fromMe flag`);
         return true;
     }
 
-    // لو مفيش أي حاجة من اللي فات، يبقى عميل عادي
-    console.log(`👤 Customer detected - message: "${message}"`);
     return false;
+}
+
+// 🔥🔥🔥 دالة جديدة: تفحص Firebase كل شوية وتشوف لو فيه رسالة جديدة فيها كلمة سر
+async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
+    try {
+        // نجيب آخر 5 رسايل للعميل ده
+        const messages = await getUserMessages(INSTANCE_ID, cleanNumber, 5);
+        
+        if (!messages || messages.length === 0) return false;
+        
+        // نجيب آخر رسالة (الأحدث)
+        const lastMessage = messages[messages.length - 1];
+        
+        // لو الرسالة دي من العميل (fromMe: false) - يعني العميل هو اللي باعتها
+        // واحنا عايزين نشوف رسايل المسؤول (fromMe: true)
+        if (lastMessage.fromMe !== true) return false;
+        
+        // نتأكد إننا مفحصناش الرسالة دي قبل كده
+        const messageKey = `${cleanNumber}_${lastMessage.timestamp}`;
+        if (lastCheckedMessage[messageKey]) return false;
+        
+        // نعلم إننا فحصنا الرسالة دي
+        lastCheckedMessage[messageKey] = true;
+        
+        console.log(`🔍 [Firebase Check] Checking message from ${cleanNumber}: "${lastMessage.message?.substring(0, 50)}..."`);
+        
+        // نفحص لو فيها كلمة سر
+        const lowerMsg = (lastMessage.message || '').toLowerCase();
+        const stopTriggers = [
+            "اهلا وسهلا يا فندم",
+            "مع حضرتك شركه النمر",
+            "هرد عليك",
+            "ثواني وهتابع معاك",
+            "انا معاك",
+            "دقيقه ارد عليك",
+            "استنى ارد"
+        ];
+        
+        if (stopTriggers.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
+            console.log(`🔥🔥🔥 [Firebase Check] SECRET PHRASE DETECTED for ${cleanNumber}! Stopping bot!`);
+            return true;
+        }
+        
+        return false;
+    } catch (error) {
+        console.error(`❌ [Firebase Check] Error:`, error.message);
+        return false;
+    }
 }
 
 // ==================== AUTO REPLY RULES ====================
@@ -557,7 +602,7 @@ module.exports = async (req, res) => {
             phone: INSTANCE.phoneNumber,
             admin_phone: ADMIN_PHONE,
             storage: 'Firebase',
-            message: 'Webhook is working with Manual Stop Triggers!',
+            message: 'Webhook is working with Firebase Polling!',
             timestamp: new Date().toISOString()
         });
     }
@@ -595,8 +640,14 @@ module.exports = async (req, res) => {
     
     await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
     
-    // 🔥🔥🔥 أهم حاجة: فحص المسؤول والتريجرات أول حاجة قبل أي رد تلقائي
-    const isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
+    // 🔥🔥🔥 الأول: نتأكد من Webhook العادي
+    let isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
+    
+    // 🔥🔥🔥 الثاني: لو مش Admin، نفحص Firebase (عشان رسايل المسؤول اللي مش بتوصل via Webhook)
+    if (!isAdmin) {
+        isAdmin = await checkFirebaseForAdminMessage(chatId, cleanNumber);
+    }
+    
     console.log(`👑 Is Admin (detected): ${isAdmin}`);
     
     if (isAdmin) {
@@ -607,7 +658,6 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human", detected: "admin" });
     }
     
-    // 🔥 نتأكد إذا كان المستخدم في وضع human (البوت ساكت)
     const currentMode = await getUserState(INSTANCE_ID, chatId);
     console.log(`📊 Current mode for ${chatId}: ${currentMode || "bot"}`);
     
@@ -616,7 +666,6 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    // 🔥 فحص طلب خدمة العملاء
     const isCustomerServiceRequest = (
         message.trim() === '6' || 
         message.trim() === '٦' ||
@@ -645,7 +694,6 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human" });
     }
     
-    // 🔥 فحص طلب الرجوع للقائمة (لإعادة تفعيل البوت)
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
     if (isMenuRequest && currentMode === "human") {
         if (timeouts[chatId]) {
@@ -657,7 +705,6 @@ module.exports = async (req, res) => {
         console.log(`📊 MODE: bot`);
     }
     
-    // 🔥 البحث عن رد تلقائي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
