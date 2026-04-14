@@ -51,7 +51,6 @@ const companyData = {
         }
     },
     
-    // الأسعار الجديدة
     newPrices: {
         individual: {
             "60 جنيه": "من الإبراهيمية للبحري",
@@ -77,7 +76,6 @@ const companyData = {
         }
     },
     
-    // فرص العمل للمناديب
     jobOpportunities: {
         title: "🔥 شركة النمر للشحن - فرصة شغل قوية للمناديب",
         description: "لو بتدور على شغل ثابت أو دخل إضافي… فاتحين باب التقديم فورًا 👇",
@@ -133,7 +131,6 @@ const companyData = {
 💪 فرصتك تبدأ وتكبر معانا`
     },
     
-    // شروط التعامل مع وكلاء لورد
     lordAgentsTerms: {
         agentFee: "40 جنيه لكل أوردر",
         paymentSystems: {
@@ -194,7 +191,7 @@ const ADMIN_PHONE = "201119383101";
 const timeouts = {};
 const TIMEOUT_DURATION = 30 * 60 * 1000;
 
-// 🔥🔥🔥 تخزين آخر رسالة تم فحصها لكل عميل (عشان منفحصش نفس الرسالة مرتين)
+// 🔥🔥🔥 تخزين آخر رسالة تم فحصها لكل عميل
 const lastCheckedMessage = {};
 
 // 🔥🔥🔥 تنظيف الكاش كل دقيقة
@@ -223,7 +220,7 @@ async function setAutoTimeout(chatId) {
     }, TIMEOUT_DURATION);
 }
 
-// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول أو تحتوي على trigger لإيقاف البوت
+// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول أو تحتوي على trigger
 function isMessageFromAdmin(message, isFromMe, chatId) {
     let cleanChatId = chatId.replace('@c.us', '').replace('@lid', '').replace('+', '').replace(/[^0-9]/g, '');
     let cleanAdminPhone = ADMIN_PHONE;
@@ -258,21 +255,32 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
     return false;
 }
 
-// 🔥🔥🔥 دالة جديدة: تفحص Firebase كل شوية وتشوف لو فيه رسالة جديدة فيها كلمة سر
+// 🔥🔥🔥 فحص Firebase لآخر 50 رسالة والبحث عن كلمة السر في رسائل المسؤول
 async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
     try {
-        // نجيب آخر 20 رسالة للعميل ده
-        const messages = await getUserMessages(INSTANCE_ID, cleanNumber, 20);
+        // نجيب آخر 50 رسالة للعميل ده
+        const messages = await getUserMessages(INSTANCE_ID, cleanNumber, 50);
         
         if (!messages || messages.length === 0) return false;
         
         console.log(`🔍 [Firebase Check] Got ${messages.length} messages for ${cleanNumber}`);
         
+        const stopTriggers = [
+            "اهلا وسهلا يا فندم",
+            "مع حضرتك شركه النمر",
+            "هرد عليك",
+            "ثواني وهتابع معاك",
+            "انا معاك",
+            "دقيقه ارد عليك",
+            "استنى ارد"
+        ];
+        
         // نلف على كل الرسايل من الأحدث للأقدم
         for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
             
-            // لو الرسالة دي من المسؤول (fromMe: true)
+            // 🔥 المهم: ندور في رسائل المسؤول (fromMe: true) بس
+            // رسائل البوت التلقائية ممكن تكون fromMe: true برضو، لكن رسائلك أنت اللي فيها كلمة السر
             if (msg.fromMe !== true) continue;
             
             const messageKey = `${cleanNumber}_${msg.timestamp}`;
@@ -283,22 +291,17 @@ async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
             // نخزن وقت الفحص
             lastCheckedMessage[messageKey] = Date.now();
             
-            console.log(`🔍 [Firebase Check] Checking admin message: "${msg.message?.substring(0, 50)}..."`);
+            const msgText = msg.message || '';
             
-            // نفحص لو فيها كلمة سر
-            const lowerMsg = (msg.message || '').toLowerCase();
-            const stopTriggers = [
-                "اهلا وسهلا يا فندم",
-                "مع حضرتك شركه النمر",
-                "هرد عليك",
-                "ثواني وهتابع معاك",
-                "انا معاك",
-                "دقيقه ارد عليك",
-                "استنى ارد"
-            ];
+            // نتأكد إنها مش رسالة تلقائية من البوت (اختياري)
+            // لو عايز تفحص رسائل معينة بس، تقدر تضيف فلتر هنا
+            
+            console.log(`🔍 [Firebase Check] Checking admin message: "${msgText.substring(0, 50)}..."`);
+            
+            const lowerMsg = msgText.toLowerCase();
             
             if (stopTriggers.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
-                console.log(`🔥🔥🔥 [Firebase Check] SECRET PHRASE DETECTED in admin message! Stopping bot!`);
+                console.log(`🔥🔥🔥 [Firebase Check] SECRET PHRASE DETECTED! Message: "${msgText.substring(0, 100)}"`);
                 return true;
             }
         }
@@ -619,7 +622,7 @@ module.exports = async (req, res) => {
             phone: INSTANCE.phoneNumber,
             admin_phone: ADMIN_PHONE,
             storage: 'Firebase',
-            message: 'Webhook is working with Firebase Polling (20 messages)!',
+            message: 'Webhook is working with Full Conversation Scan (50 messages)!',
             timestamp: new Date().toISOString()
         });
     }
@@ -657,11 +660,12 @@ module.exports = async (req, res) => {
     
     await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
     
-    // 🔥🔥🔥 الأول: نتأكد من Webhook العادي
+    // 🔥🔥🔥 فحص Webhook العادي
     let isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
     
-    // 🔥🔥🔥 الثاني: لو مش Admin، نفحص Firebase (عشان رسايل المسؤول اللي مش بتوصل via Webhook)
+    // 🔥🔥🔥 فحص Firebase لآخر 50 رسالة
     if (!isAdmin) {
+        console.log(`🔍 [Firebase] Scanning last 50 messages for admin secret...`);
         isAdmin = await checkFirebaseForAdminMessage(chatId, cleanNumber);
     }
     
