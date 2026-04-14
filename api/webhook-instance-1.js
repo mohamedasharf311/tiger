@@ -51,6 +51,7 @@ const companyData = {
         }
     },
     
+    // الأسعار الجديدة
     newPrices: {
         individual: {
             "60 جنيه": "من الإبراهيمية للبحري",
@@ -76,6 +77,7 @@ const companyData = {
         }
     },
     
+    // فرص العمل للمناديب
     jobOpportunities: {
         title: "🔥 شركة النمر للشحن - فرصة شغل قوية للمناديب",
         description: "لو بتدور على شغل ثابت أو دخل إضافي… فاتحين باب التقديم فورًا 👇",
@@ -131,6 +133,7 @@ const companyData = {
 💪 فرصتك تبدأ وتكبر معانا`
     },
     
+    // شروط التعامل مع وكلاء لورد
     lordAgentsTerms: {
         agentFee: "40 جنيه لكل أوردر",
         paymentSystems: {
@@ -194,6 +197,16 @@ const TIMEOUT_DURATION = 30 * 60 * 1000;
 // 🔥🔥🔥 تخزين آخر رسالة تم فحصها لكل عميل (عشان منفحصش نفس الرسالة مرتين)
 const lastCheckedMessage = {};
 
+// 🔥🔥🔥 تنظيف الكاش كل دقيقة
+setInterval(() => {
+    const now = Date.now();
+    for (let key in lastCheckedMessage) {
+        if (now - lastCheckedMessage[key] > 5 * 60 * 1000) {
+            delete lastCheckedMessage[key];
+        }
+    }
+}, 60 * 1000);
+
 async function setAutoTimeout(chatId) {
     if (timeouts[chatId]) {
         clearTimeout(timeouts[chatId]);
@@ -248,42 +261,46 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
 // 🔥🔥🔥 دالة جديدة: تفحص Firebase كل شوية وتشوف لو فيه رسالة جديدة فيها كلمة سر
 async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
     try {
-        // نجيب آخر 5 رسايل للعميل ده
-        const messages = await getUserMessages(INSTANCE_ID, cleanNumber, 5);
+        // نجيب آخر 20 رسالة للعميل ده
+        const messages = await getUserMessages(INSTANCE_ID, cleanNumber, 20);
         
         if (!messages || messages.length === 0) return false;
         
-        // نجيب آخر رسالة (الأحدث)
-        const lastMessage = messages[messages.length - 1];
+        console.log(`🔍 [Firebase Check] Got ${messages.length} messages for ${cleanNumber}`);
         
-        // لو الرسالة دي من العميل (fromMe: false) - يعني العميل هو اللي باعتها
-        // واحنا عايزين نشوف رسايل المسؤول (fromMe: true)
-        if (lastMessage.fromMe !== true) return false;
-        
-        // نتأكد إننا مفحصناش الرسالة دي قبل كده
-        const messageKey = `${cleanNumber}_${lastMessage.timestamp}`;
-        if (lastCheckedMessage[messageKey]) return false;
-        
-        // نعلم إننا فحصنا الرسالة دي
-        lastCheckedMessage[messageKey] = true;
-        
-        console.log(`🔍 [Firebase Check] Checking message from ${cleanNumber}: "${lastMessage.message?.substring(0, 50)}..."`);
-        
-        // نفحص لو فيها كلمة سر
-        const lowerMsg = (lastMessage.message || '').toLowerCase();
-        const stopTriggers = [
-            "اهلا وسهلا يا فندم",
-            "مع حضرتك شركه النمر",
-            "هرد عليك",
-            "ثواني وهتابع معاك",
-            "انا معاك",
-            "دقيقه ارد عليك",
-            "استنى ارد"
-        ];
-        
-        if (stopTriggers.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
-            console.log(`🔥🔥🔥 [Firebase Check] SECRET PHRASE DETECTED for ${cleanNumber}! Stopping bot!`);
-            return true;
+        // نلف على كل الرسايل من الأحدث للأقدم
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            
+            // لو الرسالة دي من المسؤول (fromMe: true)
+            if (msg.fromMe !== true) continue;
+            
+            const messageKey = `${cleanNumber}_${msg.timestamp}`;
+            
+            // لو فحصناها قبل كده، skip
+            if (lastCheckedMessage[messageKey]) continue;
+            
+            // نخزن وقت الفحص
+            lastCheckedMessage[messageKey] = Date.now();
+            
+            console.log(`🔍 [Firebase Check] Checking admin message: "${msg.message?.substring(0, 50)}..."`);
+            
+            // نفحص لو فيها كلمة سر
+            const lowerMsg = (msg.message || '').toLowerCase();
+            const stopTriggers = [
+                "اهلا وسهلا يا فندم",
+                "مع حضرتك شركه النمر",
+                "هرد عليك",
+                "ثواني وهتابع معاك",
+                "انا معاك",
+                "دقيقه ارد عليك",
+                "استنى ارد"
+            ];
+            
+            if (stopTriggers.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
+                console.log(`🔥🔥🔥 [Firebase Check] SECRET PHRASE DETECTED in admin message! Stopping bot!`);
+                return true;
+            }
         }
         
         return false;
@@ -602,7 +619,7 @@ module.exports = async (req, res) => {
             phone: INSTANCE.phoneNumber,
             admin_phone: ADMIN_PHONE,
             storage: 'Firebase',
-            message: 'Webhook is working with Firebase Polling!',
+            message: 'Webhook is working with Firebase Polling (20 messages)!',
             timestamp: new Date().toISOString()
         });
     }
