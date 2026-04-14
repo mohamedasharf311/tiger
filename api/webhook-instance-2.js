@@ -5,7 +5,8 @@ const {
     deleteUserState, 
     cleanupExpiredUsers,
     saveMessage,
-    getMessagesStats
+    getMessagesStats,
+    getUserMessages
 } = require('./firebase-config');
 
 // ==================== COMPANY DATA ====================
@@ -50,6 +51,7 @@ const companyData = {
         }
     },
     
+    // الأسعار الجديدة
     newPrices: {
         individual: {
             "60 جنيه": "من الإبراهيمية للبحري",
@@ -75,6 +77,7 @@ const companyData = {
         }
     },
     
+    // فرص العمل للمناديب
     jobOpportunities: {
         title: "🔥 شركة النمر للشحن - فرصة شغل قوية للمناديب",
         description: "لو بتدور على شغل ثابت أو دخل إضافي… فاتحين باب التقديم فورًا 👇",
@@ -130,6 +133,7 @@ const companyData = {
 💪 فرصتك تبدأ وتكبر معانا`
     },
     
+    // شروط التعامل مع وكلاء لورد
     lordAgentsTerms: {
         agentFee: "40 جنيه لكل أوردر",
         paymentSystems: {
@@ -190,6 +194,9 @@ const ADMIN_PHONE = "201119383101";
 const timeouts = {};
 const TIMEOUT_DURATION = 30 * 60 * 1000;
 
+// 🔥🔥🔥 تخزين آخر رسالة تم فحصها لكل عميل (عشان منفحصش نفس الرسالة مرتين)
+const lastCheckedMessage = {};
+
 async function setAutoTimeout(chatId) {
     if (timeouts[chatId]) {
         clearTimeout(timeouts[chatId]);
@@ -238,8 +245,55 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
         return true;
     }
 
-    console.log(`👤 Customer detected - message: "${message}"`);
     return false;
+}
+
+// 🔥🔥🔥 دالة جديدة: تفحص Firebase كل شوية وتشوف لو فيه رسالة جديدة فيها كلمة سر
+async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
+    try {
+        // نجيب آخر 5 رسايل للعميل ده
+        const messages = await getUserMessages(INSTANCE_ID, cleanNumber, 5);
+        
+        if (!messages || messages.length === 0) return false;
+        
+        // نجيب آخر رسالة (الأحدث)
+        const lastMessage = messages[messages.length - 1];
+        
+        // لو الرسالة دي من العميل (fromMe: false) - يعني العميل هو اللي باعتها
+        // واحنا عايزين نشوف رسايل المسؤول (fromMe: true)
+        if (lastMessage.fromMe !== true) return false;
+        
+        // نتأكد إننا مفحصناش الرسالة دي قبل كده
+        const messageKey = `${cleanNumber}_${lastMessage.timestamp}`;
+        if (lastCheckedMessage[messageKey]) return false;
+        
+        // نعلم إننا فحصنا الرسالة دي
+        lastCheckedMessage[messageKey] = true;
+        
+        console.log(`🔍 [Firebase Check] Checking message from ${cleanNumber}: "${lastMessage.message?.substring(0, 50)}..."`);
+        
+        // نفحص لو فيها كلمة سر
+        const lowerMsg = (lastMessage.message || '').toLowerCase();
+        const stopTriggers = [
+            "اهلا وسهلا يا فندم",
+            "مع حضرتك شركه النمر",
+            "هرد عليك",
+            "ثواني وهتابع معاك",
+            "انا معاك",
+            "دقيقه ارد عليك",
+            "استنى ارد"
+        ];
+        
+        if (stopTriggers.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
+            console.log(`🔥🔥🔥 [Firebase Check] SECRET PHRASE DETECTED for ${cleanNumber}! Stopping bot!`);
+            return true;
+        }
+        
+        return false;
+    } catch (error) {
+        console.error(`❌ [Firebase Check] Error:`, error.message);
+        return false;
+    }
 }
 
 // ==================== AUTO REPLY RULES ====================
@@ -551,7 +605,7 @@ module.exports = async (req, res) => {
             phone: INSTANCE.phoneNumber,
             admin_phone: ADMIN_PHONE,
             storage: 'Firebase',
-            message: 'Webhook is working with Manual Stop Triggers!',
+            message: 'Webhook is working with Firebase Polling!',
             timestamp: new Date().toISOString()
         });
     }
@@ -589,7 +643,14 @@ module.exports = async (req, res) => {
     
     await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
     
-    const isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
+    // 🔥🔥🔥 الأول: نتأكد من Webhook العادي
+    let isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
+    
+    // 🔥🔥🔥 الثاني: لو مش Admin، نفحص Firebase (عشان رسايل المسؤول اللي مش بتوصل via Webhook)
+    if (!isAdmin) {
+        isAdmin = await checkFirebaseForAdminMessage(chatId, cleanNumber);
+    }
+    
     console.log(`👑 Is Admin (detected): ${isAdmin}`);
     
     if (isAdmin) {
