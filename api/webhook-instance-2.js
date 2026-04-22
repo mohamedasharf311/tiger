@@ -335,8 +335,7 @@ function createOrderSummary(order) {
 
 📝 اكتب **نعم** لتأكيد الأوردر
 ✏️ اكتب **تعديل** لتغيير البيانات
-
-للخروج من طلب الشحن اكتب **إلغاء**
+❌ اكتب **إلغاء** للخروج
 ━━━━━━━━━━━━━━━━━━━━━`;
 }
 
@@ -344,6 +343,30 @@ function createOrderSummary(order) {
 async function handleOrderFlow(chatId, message, sendMessageFunc) {
     const currentStep = orderStep[chatId];
     const currentOrder = orderData[chatId] || { _timestamp: Date.now() };
+    
+    // 🔥 مهم جداً: تجاهل أي رسالة فيها أرقام من 1-9 لو احنا في الفلو
+    // لأن المستخدم ممكن يضغط رقم بالغلط
+    const numberKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    if (numberKeys.includes(message.trim()) && currentStep) {
+        console.log(`⚠️ User pressed number ${message} during order flow, ignoring and re-asking question`);
+        
+        const stepQuestions = {
+            senderName: "✏️ من فضلك اكتب **اسم الراسل** بالكامل:",
+            senderPhone: "📞 من فضلك اكتب **رقم التواصل** للراسل:",
+            senderAddress: "📍 من فضلك اكتب **عنوان الراسل** بالتفصيل:",
+            orderContents: "📦 من فضلك اكتب **محتويات الأوردر**:",
+            totalAmount: "💰 من فضلك اكتب **إجمالي المبلغ**:",
+            receiverName: "👤 من فضلك اكتب **اسم المستلم** بالكامل:",
+            receiverPhone: "📞 من فضلك اكتب **رقم التواصل** للمستلم:",
+            receiverAltPhone: "📞 من فضلك اكتب **رقم آخر** للمستلم (اختياري - اكتب 'لا' إذا لم يوجد):",
+            governorate: "📍 من فضلك اكتب **المحافظة**:",
+            receiverAddress: "🏠 من فضلك اكتب **عنوان المستلم** بالتفصيل:"
+        };
+        
+        const question = stepQuestions[currentStep] || "✏️ من فضلك اكتب البيانات المطلوبة:";
+        await sendMessageFunc(chatId, `⚠️ يرجى كتابة البيانات المطلوبة وليس الأرقام.\n\n${question}`);
+        return true;
+    }
     
     // بداية الفلو - أول مرة
     if (!currentStep) {
@@ -356,42 +379,70 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
     // معالجة كل خطوة حسب المرحلة
     switch (currentStep) {
         case "senderName":
+            if (!message || message.trim() === '') {
+                await sendMessageFunc(chatId, "⚠️ اسم الراسل لا يمكن أن يكون فارغًا.\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل:");
+                return true;
+            }
             currentOrder.senderName = message;
             orderStep[chatId] = "senderPhone";
             await sendMessageFunc(chatId, "📞 ممتاز ✏️ من فضلك اكتب **رقم التواصل** للراسل:");
             break;
             
         case "senderPhone":
+            if (!message || message.trim() === '') {
+                await sendMessageFunc(chatId, "⚠️ رقم التواصل لا يمكن أن يكون فارغًا.\n\n📞 من فضلك اكتب **رقم التواصل** للراسل:");
+                return true;
+            }
             currentOrder.senderPhone = message;
             orderStep[chatId] = "senderAddress";
             await sendMessageFunc(chatId, "📍 تمام ✏️ من فضلك اكتب **عنوان الراسل** بالتفصيل (الشارع - المنطقة - أقرب معلم):");
             break;
             
         case "senderAddress":
+            if (!message || message.trim() === '') {
+                await sendMessageFunc(chatId, "⚠️ عنوان الراسل لا يمكن أن يكون فارغًا.\n\n📍 من فضلك اكتب **عنوان الراسل** بالتفصيل:");
+                return true;
+            }
             currentOrder.senderAddress = message;
             orderStep[chatId] = "orderContents";
             await sendMessageFunc(chatId, "📦 ممتاز ✏️ من فضلك اكتب **محتويات الأوردر** (نوع البضاعة - الوزن التقريبي):");
             break;
             
         case "orderContents":
+            if (!message || message.trim() === '') {
+                await sendMessageFunc(chatId, "⚠️ محتويات الأوردر لا يمكن أن تكون فارغة.\n\n📦 من فضلك اكتب **محتويات الأوردر**:");
+                return true;
+            }
             currentOrder.orderContents = message;
             orderStep[chatId] = "totalAmount";
             await sendMessageFunc(chatId, "💰 تمام ✏️ من فضلك اكتب **إجمالي المبلغ** المستلم (بالجنيه المصري):");
             break;
             
         case "totalAmount":
+            if (!message || message.trim() === '') {
+                await sendMessageFunc(chatId, "⚠️ إجمالي المبلغ لا يمكن أن يكون فارغًا.\n\n💰 من فضلك اكتب **إجمالي المبلغ**:");
+                return true;
+            }
             currentOrder.totalAmount = message;
             orderStep[chatId] = "receiverName";
             await sendMessageFunc(chatId, "👤 ممتاز ✏️ من فضلك اكتب **اسم المستلم** بالكامل:");
             break;
             
         case "receiverName":
+            if (!message || message.trim() === '') {
+                await sendMessageFunc(chatId, "⚠️ اسم المستلم لا يمكن أن يكون فارغًا.\n\n👤 من فضلك اكتب **اسم المستلم** بالكامل:");
+                return true;
+            }
             currentOrder.receiverName = message;
             orderStep[chatId] = "receiverPhone";
             await sendMessageFunc(chatId, "📞 تمام ✏️ من فضلك اكتب **رقم التواصل** للمستلم:");
             break;
             
         case "receiverPhone":
+            if (!message || message.trim() === '') {
+                await sendMessageFunc(chatId, "⚠️ رقم التواصل للمستلم لا يمكن أن يكون فارغًا.\n\n📞 من فضلك اكتب **رقم التواصل** للمستلم:");
+                return true;
+            }
             currentOrder.receiverPhone = message;
             orderStep[chatId] = "receiverAltPhone";
             await sendMessageFunc(chatId, "📞 ✏️ من فضلك اكتب **رقم آخر** للمستلم (اختياري - اكتب 'لا' إذا لم يوجد):");
@@ -408,12 +459,20 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             break;
             
         case "governorate":
+            if (!message || message.trim() === '') {
+                await sendMessageFunc(chatId, "⚠️ المحافظة لا يمكن أن تكون فارغة.\n\n📍 من فضلك اكتب **المحافظة**:");
+                return true;
+            }
             currentOrder.governorate = message;
             orderStep[chatId] = "receiverAddress";
             await sendMessageFunc(chatId, "🏠 ممتاز ✏️ من فضلك اكتب **عنوان المستلم** بالتفصيل (الشارع - المنطقة - أقرب معلم):");
             break;
             
         case "receiverAddress":
+            if (!message || message.trim() === '') {
+                await sendMessageFunc(chatId, "⚠️ عنوان المستلم لا يمكن أن يكون فارغًا.\n\n🏠 من فضلك اكتب **عنوان المستلم** بالتفصيل:");
+                return true;
+            }
             currentOrder.receiverAddress = message;
             // انتهى جمع البيانات - نعرض ملخص التأكيد
             delete orderStep[chatId];
@@ -616,7 +675,7 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
     },
     {
         id: 11,
-        keywords: ['موافق', 'ok', 'oki', 'oki', 'oki', 'ابدأ', 'start order', 'yes order'],
+        keywords: ['موافق', 'ok', 'oki', 'ابدأ', 'start order', 'yes order'],
         reply: "📝 تمام يا فندم 👌 نبدأ تسجيل الأوردر\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل:",
         active: true
     },
@@ -795,17 +854,21 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    // 🔥🔥🔥 معالجة فلو الأوردر - الأولوية القصوى
-    // لو العميل في مرحلة إنشاء أوردر (عنده orderStep)
+    // 🔥🔥🔥 الأولوية القصوى: فلو إنشاء الأوردر (Step by Step)
+    // ده لازم يبقى قبل أي حاجة تانية عشان الرقم 3 ميخربش الفلو
+    
+    // الحالة 1: العميل في مرحلة إنشاء أوردر (عنده orderStep)
     if (orderStep[chatId]) {
+        console.log(`🎯 [ORDER FLOW] User in step: ${orderStep[chatId]}`);
         const handled = await handleOrderFlow(chatId, message, sendWhatsAppMessage);
         if (handled) {
             return res.status(200).json({ success: true, flow: "order_wizard" });
         }
     }
     
-    // لو العميل في مرحلة تأكيد الأوردر (عنده orderData وملوش orderStep)
+    // الحالة 2: العميل في مرحلة تأكيد الأوردر (عنده orderData وملوش orderStep)
     if (orderData[chatId] && !orderStep[chatId]) {
+        console.log(`🎯 [ORDER CONFIRMATION] User confirming order`);
         const handled = await handleOrderConfirmation(chatId, message, sendWhatsAppMessage);
         if (handled) {
             return res.status(200).json({ success: true, flow: "order_confirmation" });
@@ -848,6 +911,7 @@ module.exports = async (req, res) => {
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
+        console.log(`🤖 [AUTO REPLY] Sending regular auto-reply`);
         const result = await sendWhatsAppMessage(chatId, autoReply);
         if (result.success) {
             await saveMessage(INSTANCE_ID, cleanNumber, autoReply, true);
@@ -855,5 +919,6 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: result.success, replied: true });
     }
     
+    console.log(`⚠️ No action taken for message: "${message}"`);
     return res.status(200).json({ success: true, replied: false });
 };
