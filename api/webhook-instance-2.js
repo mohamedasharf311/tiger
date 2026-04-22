@@ -13,9 +13,12 @@ const {
 const companyData = {
     name: "النمر للشحن - ELNMR",
     services: "شحن – تخزين – تغليف داخل الإسكندرية",
+    address: "1.7 ش أنيس الإبراهيمية",
     welcomeMessage: `🐯 أهلاً بيك في شركة النمر للشحن! / Welcome to ELNMR Shipping!
 
 نحن شركة النمر للشحن - لدينا مقر رسمي، وسجل تجاري، وبطاقة ضريبية، لضمان الثقة والالتزام في التعامل.
+
+عنواننا: 1.7 ش أنيس الإبراهيمية
 
 من فضلك اختار الرقم المناسب 👇 / Please choose the appropriate number 👇
 
@@ -39,15 +42,15 @@ const companyData = {
     
     shippingPrices: {
         alexandria: {
-            "60 جنيه": ["سيدي جابر", "جليم", "سموحة", "كفر عبده", "محطة الرمل", "محرم بك", "محطة مصر", "اللبان", "العطارين", "المنشية", "كرموز"],
-            "65 جنيه": ["رأس السودة", "سيوف", "حجر النواتية", "خورشيد"],
-            "70 جنيه": ["المندرة", "المعمورة", "طوسون", "أبو قير"],
-            "75 جنيه": ["العجمي"],
-            "90 جنيه": ["برج العرب", "العامرية"]
+            "60 جنيه": ["داخلي - جميع أحياء الإسكندرية"],
+            "80 جنيه": ["خارجي - ضواحي الإسكندرية"]
         },
         outsideAlexandria: {
-            "100 جنيه": ["القاهرة", "بورسعيد", "الإسماعيلية", "الفيوم", "قنا"],
-            "120 جنيه": ["سوهاج"]
+            "120 جنيه": ["القاهرة", "الجيزة"],
+            "100 جنيه": ["الدقهلية", "البحيرة", "بورسعيد", "كفر الشيخ", "الغربية", "الإسماعيلية", "دمياط", "القليوبية", "السويس", "الشرقية"],
+            "150 جنيه": ["الفيوم", "بني سويف", "المنوفية", "المنيا", "أسيوط", "مطروح", "الساحل", "سوهاج"],
+            "180 جنيه": ["البحر الأحمر", "الوادي الجديد", "أسوان", "قنا"],
+            "200 جنيه": ["جنوب سيناء", "شمال سيناء", "الأقصر"]
         }
     },
     
@@ -160,8 +163,36 @@ const companyData = {
     
     contactInfo: {
         website: "elnmrshipping.com.eg",
-        phones: ["01119383101", "01553999935", "01130491210", "01130491209"]
+        phones: ["01553999935", "035938007", "01119383101"],
+        address: "1.7 ش أنيس الإبراهيمية"
     },
+    
+    // قالب تأكيد الأوردر الجديد
+    orderConfirmationTemplate: `📦 **تأكيد طلب الشحن - النمر للشحن** 📦
+
+━━━━━━━━━━━━━━━━━━━━━
+**بيانات الراسل:**
+• اسم الراسل: {senderName}
+• رقم التواصل: {senderPhone}
+• العنوان بالتفاصيل: {senderAddress}
+
+**بيانات الشحنة:**
+• محتويات الأوردر: {orderContents}
+• إجمالي المبلغ: {totalAmount} جنيه
+
+**بيانات المستلم:**
+• اسم المستلم: {receiverName}
+• رقم التواصل: {receiverPhone}
+• رقم آخر: {receiverAltPhone}
+• المحافظة: {governorate}
+• العنوان بالتفاصيل: {receiverAddress}
+
+━━━━━━━━━━━━━━━━━━━━━
+✅ تم استلام طلبك بنجاح!
+سيتم التواصل معك قريباً لتأكيد موعد الاستلام.
+
+للتواصل مع خدمة العملاء: اضغط 6
+━━━━━━━━━━━━━━━━━━━━━`,
     
     terms: [
         "السعر ممكن يتغير حسب البنزين / Price may change based on fuel cost",
@@ -183,6 +214,7 @@ const INSTANCE = {
     phoneNumber: "201553999936",
     active: true
 };
+
 // 🔥 رقم هاتف المسؤول
 const ADMIN_PHONE = "201119383101";
 
@@ -203,6 +235,9 @@ const TIMEOUT_DURATION = 30 * 60 * 1000;
 
 // 🔥🔥🔥 تخزين آخر رسالة تم فحصها لكل عميل
 const lastCheckedMessage = {};
+
+// 🔥🔥🔥 تخزين بيانات الأوردر المؤقتة لكل عميل
+const orderData = {};
 
 // 🔥🔥🔥 تنظيف الكاش كل دقيقة
 setInterval(() => {
@@ -227,6 +262,8 @@ async function setAutoTimeout(chatId) {
             delete timeouts[chatId];
             console.log(`🤖 Auto timeout: User ${chatId} switched back to BOT mode after 30 minutes`);
         }
+        // حذف بيانات الأوردر بعد انتهاء المهلة
+        delete orderData[chatId];
     }, TIMEOUT_DURATION);
 }
 
@@ -261,7 +298,6 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
 // 🔥🔥🔥 فحص Firebase لآخر 50 رسالة والبحث عن كلمة السر في رسائل المسؤول
 async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
     try {
-        // نجيب آخر 50 رسالة للعميل ده
         const messages = await getUserMessages(INSTANCE_ID, cleanNumber, 50);
         
         if (!messages || messages.length === 0) {
@@ -271,20 +307,15 @@ async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
         
         console.log(`🔍 [Firebase Check] Got ${messages.length} messages for ${cleanNumber}`);
         
-        // نلف على كل الرسايل من الأحدث للأقدم
         for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
             
-            // 🔥 المهم: ندور في رسائل المسؤول (fromMe: true) بس
-            // دي رسائلك أنت اللي اتبعتت من واتساب العادي أو من البوت
             if (msg.fromMe !== true) continue;
             
             const messageKey = `${cleanNumber}_${msg.timestamp}`;
             
-            // لو فحصناها قبل كده، skip
             if (lastCheckedMessage[messageKey]) continue;
             
-            // نخزن وقت الفحص
             lastCheckedMessage[messageKey] = Date.now();
             
             const msgText = msg.message || '';
@@ -292,7 +323,6 @@ async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
             
             console.log(`🔍 [Firebase Check] Checking admin message in ${cleanNumber}: "${msgText.substring(0, 50)}..."`);
             
-            // نفحص لو فيها كلمة سر
             if (STOP_TRIGGERS.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
                 console.log(`🔥🔥🔥 [Firebase Check] SECRET PHRASE DETECTED in ${cleanNumber}!`);
                 console.log(`📝 Full message: "${msgText.substring(0, 200)}"`);
@@ -321,19 +351,10 @@ let autoRules = [
         reply: `📍 أسعار الشحن داخل الإسكندرية / Alexandria Shipping Prices:
 
 💰 60 جنيه / EGP:
-${companyData.shippingPrices.alexandria["60 جنيه"].join(' - ')}
+داخلي - جميع أحياء الإسكندرية
 
-💰 65 جنيه / EGP:
-${companyData.shippingPrices.alexandria["65 جنيه"].join(' - ')}
-
-💰 70 جنيه / EGP:
-${companyData.shippingPrices.alexandria["70 جنيه"].join(' - ')}
-
-💰 75 جنيه / EGP:
-${companyData.shippingPrices.alexandria["75 جنيه"].join(' - ')}
-
-💰 90 جنيه / EGP:
-${companyData.shippingPrices.alexandria["90 جنيه"].join(' - ')}
+💰 80 جنيه / EGP:
+خارجي - ضواحي الإسكندرية
 
 📌 ملاحظة: البيك أب 10 جنيه على كل أوردر / Pickup fee: 10 EGP per order
 
@@ -342,14 +363,23 @@ ${companyData.shippingPrices.alexandria["90 جنيه"].join(' - ')}
     },
     {
         id: 2,
-        keywords: ['2', '٢', 'خارج الاسكندرية', 'خارج الإسكندرية', 'خارج', 'اسعار خارج', 'القاهرة', 'بورسعيد', 'الإسماعيلية', 'الفيوم', 'قنا', 'سوهاج', 'outside alexandria', 'cairo', 'portsaid', 'ismailia', 'outside', 'other cities'],
+        keywords: ['2', '٢', 'خارج الاسكندرية', 'خارج الإسكندرية', 'خارج', 'اسعار خارج', 'القاهرة', 'الجيزة', 'الدقهلية', 'البحيرة', 'بورسعيد', 'كفر الشيخ', 'الغربية', 'الإسماعيلية', 'دمياط', 'القليوبية', 'السويس', 'الشرقية', 'الفيوم', 'بني سويف', 'المنوفية', 'المنيا', 'أسيوط', 'مطروح', 'الساحل', 'سوهاج', 'البحر الأحمر', 'الوادي الجديد', 'أسوان', 'قنا', 'جنوب سيناء', 'شمال سيناء', 'الأقصر', 'outside alexandria', 'cairo', 'outside', 'other cities'],
         reply: `📍 أسعار الشحن خارج الإسكندرية / Outside Alexandria Shipping Prices:
 
-💰 100 جنيه / EGP:
-${companyData.shippingPrices.outsideAlexandria["100 جنيه"].join(' - ')}
-
 💰 120 جنيه / EGP:
-${companyData.shippingPrices.outsideAlexandria["120 جنيه"].join(' - ')}
+القاهرة - الجيزة
+
+💰 100 جنيه / EGP:
+الدقهلية، البحيرة، بورسعيد، كفر الشيخ، الغربية، الإسماعيلية، دمياط، القليوبية، السويس، الشرقية
+
+💰 150 جنيه / EGP:
+الفيوم، بني سويف، المنوفية، المنيا، أسيوط، مطروح، الساحل، سوهاج
+
+💰 180 جنيه / EGP:
+البحر الأحمر، الوادي الجديد، أسوان، قنا
+
+💰 200 جنيه / EGP:
+جنوب سيناء، شمال سيناء، الأقصر
 
 للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
         active: true
@@ -431,6 +461,7 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
 
 🌐 بيانات التواصل / Contact Information:
 • الموقع: ${companyData.contactInfo.website}
+• العنوان: ${companyData.contactInfo.address}
 • الهاتف: ${companyData.contactInfo.phones.join(' | ')}
 
 للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
@@ -451,23 +482,41 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
     {
         id: 10,
         keywords: ['طلب شحن', 'شحنة', 'طلب', 'اوردر', 'اطلب', 'شراء', 'عايز أطلب', 'عايز اشتري', 'احجز', 'اريد شحن', 'اريد طلب', 'new order', 'place order', 'order', 'shipping request', 'send package', 'i want to ship', 'book', 'request shipping', 'create order'],
-        reply: `🛍️ لطلب شحنة جديدة في النمر للشحن، يرجى إرسال / To place a new order, please send:
+        reply: `🛍️ لطلب شحنة جديدة في النمر للشحن، يرجى إرسال البيانات التالية / To place a new order, please send:
 
-1️⃣ اسمك الكامل / Full name
-2️⃣ العنوان بالتفصيل / Detailed address
-3️⃣ نوع البضاعة / Package type (عادي/fragile)
-4️⃣ الوزن التقريبي / Approximate weight (kg)
+📝 **بيانات الراسل:**
+• اسم الراسل بالكامل
+• رقم للتواصل
+• العنوان بالتفاصيل
 
-سيتم التواصل معك لتأكيد السعر وموعد الاستلام.
-We will contact you to confirm price and pickup time.
+📦 **بيانات الشحنة:**
+• محتويات الأوردر
+• إجمالي المبلغ
 
-📌 ملاحظة: البيك أب 10 جنيه على كل أوردر / Note: Pickup fee 10 EGP per order
+👤 **بيانات المستلم:**
+• اسم المستلم بالكامل
+• رقم التواصل
+• رقم آخر (اختياري)
+• المحافظة
+• العنوان بالتفاصيل
+
+📌 يرجى إرسال كل بيانات الأوردر في رسالة واحدة أو رسائل متتالية.
+
+سيتم إرسال تأكيد الطلب بعد استلام جميع البيانات.
 
 للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
         active: true
     },
     {
         id: 11,
+        keywords: ['تأكيد', 'تم', 'تمام', 'confirmed', 'ok', 'yes', 'نعم'],
+        reply: `✅ تم استلام بياناتك! سيتم معالجتها وإرسال تأكيد الشحن قريباً.
+
+للتواصل مع خدمة العملاء: اضغط 6`,
+        active: true
+    },
+    {
+        id: 12,
         keywords: ['vip', 'VIP', 'نفس اليوم', 'توصيل سريع', 'توصيل فوري', 'سريع', 'عاجل', 'خدمة vip', 'اسرع توصيل', 'same day', 'express', 'urgent', 'fast delivery', 'quick', 'priority', 'rapid'],
         reply: `🚚 خدمة VIP توصيل نفس اليوم في النمر للشحن / VIP Same Day Delivery:
 
@@ -479,7 +528,7 @@ We will contact you to confirm price and pickup time.
         active: true
     },
     {
-        id: 12,
+        id: 13,
         keywords: ['شكرا', 'ممتاز', 'تمام', 'شكراً', 'تسلم', 'الله يبارك فيك', 'حلو', 'جميل', 'تم', 'مشكور', 'thank', 'thanks', 'great', 'excellent', 'good', 'perfect', 'ok', 'awesome', 'nice', 'done'],
         reply: `🎉 شكراً لك على تواصلك مع النمر للشحن! / Thank you for contacting ELNMR Shipping!
 
@@ -490,41 +539,14 @@ We are always at your service. If you need any further assistance, just type 'me
         active: true
     },
     {
-        id: 13,
-        keywords: ['عايز استفسر', 'عندي سؤال', 'ممكن اسأل', 'محتاج اعرف', 'عايز اعرف', 'عندكم', 'هل يوجد', 'متوفر', 'التفاصيل', 'ايه المميزات', 'بيشتغل ازاي', 'inquiry', 'question', 'information', 'details', 'what is', 'how to', 'tell me', 'i need to know', 'about', 'services'],
-        reply: `📋 للاستفسار عن خدمات النمر للشحن / For inquiries about ELNMR Shipping services:
-
-لدينا الخدمات التالية / We offer:
-• شحن داخل وخارج الإسكندرية / Shipping inside and outside Alexandria
-• تخزين بضائع / Storage
-• تغليف / Packaging
-• خدمة VIP توصيل نفس اليوم / VIP Same Day Delivery
-• باقات شحن مخصصة للشركات / Custom shipping packages for businesses
-
-للحصول على معلومات محددة / For specific information:
-• اضغط 1 لأسعار داخل الإسكندرية / Press 1 for Alexandria prices
-• اضغط 2 لأسعار خارج الإسكندرية / Press 2 for outside Alexandria prices
-• اضغط 3 لمدة التوصيل / Press 3 for delivery time
-• اضغط 4 لطرق الدفع / Press 4 for payment methods
-• اضغط 5 للشروط والسياسات / Press 5 for terms and policies
-• اضغط 6 للتواصل مع خدمة العملاء / Press 6 to contact customer service
-• اضغط 7 للباقات والأسعار الجديدة / Press 7 for packages & new prices
-• اضغط 8 لفرص العمل للمناديب / Press 8 for job opportunities
-• اضغط 9 لشروط وكلاء لورد / Press 9 for Lord agents terms
-
-للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
-        active: true
-    },
-    {
         id: 14,
-        keywords: ['تواصل', 'اتصال', 'رقم', 'تليفون', 'موبايل', 'واتساب', 'contact', 'phone', 'number', 'call', 'whatsapp', 'website', 'موقع'],
+        keywords: ['تواصل', 'اتصال', 'رقم', 'تليفون', 'موبايل', 'واتساب', 'contact', 'phone', 'number', 'call', 'whatsapp', 'website', 'موقع', 'عنوان'],
         reply: `🌐 بيانات التواصل مع النمر للشحن / Contact Information:
 
 • الموقع الإلكتروني / Website: ${companyData.contactInfo.website}
+• العنوان / Address: ${companyData.contactInfo.address}
 • أرقام الهاتف / Phone Numbers:
   ${companyData.contactInfo.phones.join('\n  ')}
-
-• واتساب / WhatsApp: ${companyData.contactInfo.phones[1]}
 
 للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
         active: true
