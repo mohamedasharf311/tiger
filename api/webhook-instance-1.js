@@ -18,7 +18,7 @@ const companyData = {
 
 نحن شركة النمر للشحن - لدينا مقر رسمي، وسجل تجاري، وبطاقة ضريبية، لضمان الثقة والالتزام في التعامل.
 
-عنواننا: ${companyData.address}
+عنواننا: 1.7 ش أنيس الإبراهيمية
 
 من فضلك اختار الرقم المناسب 👇 / Please choose the appropriate number 👇
 
@@ -30,7 +30,8 @@ const companyData = {
 6️⃣ التحدث مع خدمة العملاء / Contact customer service
 7️⃣ الباقات والأسعار الجديدة / Packages & New Prices
 8️⃣ فرص عمل للمناديب / Job opportunities for couriers
-9️⃣ شروط التعامل مع وكلاء لورد / Lord agents terms`,
+9️⃣ شروط التعامل مع وكلاء لورد / Lord agents terms
+🔟 طلب شحن جديد / New shipping order`,
 
     deliveryTimes: {
         north: "داخل الوجه البحري: خلال 72 ساعة / Nile Delta: within 72 hours",
@@ -167,33 +168,6 @@ const companyData = {
         address: "1.7 ش أنيس الإبراهيمية"
     },
     
-    // قالب تأكيد الأوردر الجديد
-    orderConfirmationTemplate: `📦 **تأكيد طلب الشحن - النمر للشحن** 📦
-
-━━━━━━━━━━━━━━━━━━━━━
-**بيانات الراسل:**
-• اسم الراسل: {senderName}
-• رقم التواصل: {senderPhone}
-• العنوان بالتفاصيل: {senderAddress}
-
-**بيانات الشحنة:**
-• محتويات الأوردر: {orderContents}
-• إجمالي المبلغ: {totalAmount} جنيه
-
-**بيانات المستلم:**
-• اسم المستلم: {receiverName}
-• رقم التواصل: {receiverPhone}
-• رقم آخر: {receiverAltPhone}
-• المحافظة: {governorate}
-• العنوان بالتفاصيل: {receiverAddress}
-
-━━━━━━━━━━━━━━━━━━━━━
-✅ تم استلام طلبك بنجاح!
-سيتم التواصل معك قريباً لتأكيد موعد الاستلام.
-
-للتواصل مع خدمة العملاء: اضغط 6
-━━━━━━━━━━━━━━━━━━━━━`,
-    
     terms: [
         "السعر ممكن يتغير حسب البنزين / Price may change based on fuel cost",
         "الأوردر القابل للكسر = مسؤولية العميل / Fragile items are customer's responsibility",
@@ -206,7 +180,7 @@ const companyData = {
 };
 
 // ==================== INSTANCE CONFIGURATION ====================
-const INSTANCE_ID = "instance3554";
+const INSTANCE_ID = "instance3554"; // غير الرقم حسب الرقم الأول أو الثاني
 const INSTANCE = {
     id: INSTANCE_ID,
     token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
@@ -239,12 +213,23 @@ const lastCheckedMessage = {};
 // 🔥🔥🔥 تخزين بيانات الأوردر المؤقتة لكل عميل
 const orderData = {};
 
+// 🔥🔥🔥 تخزين الخطوة الحالية في عملية إنشاء الأوردر
+const orderStep = {};
+
 // 🔥🔥🔥 تنظيف الكاش كل دقيقة
 setInterval(() => {
     const now = Date.now();
     for (let key in lastCheckedMessage) {
         if (now - lastCheckedMessage[key] > 5 * 60 * 1000) {
             delete lastCheckedMessage[key];
+        }
+    }
+    
+    // تنظيف بيانات الأوردر القديمة (أكثر من ساعة)
+    for (let key in orderData) {
+        if (orderData[key] && orderData[key]._timestamp && (now - orderData[key]._timestamp) > 60 * 60 * 1000) {
+            delete orderData[key];
+            delete orderStep[key];
         }
     }
 }, 60 * 1000);
@@ -264,6 +249,7 @@ async function setAutoTimeout(chatId) {
         }
         // حذف بيانات الأوردر بعد انتهاء المهلة
         delete orderData[chatId];
+        delete orderStep[chatId];
     }, TIMEOUT_DURATION);
 }
 
@@ -274,19 +260,16 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
 
     const lowerMsg = message.toLowerCase();
 
-    // فحص كلمات السر
     if (STOP_TRIGGERS.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
         console.log(`🔥 Manual stop trigger detected in incoming message.`);
         return true;
     }
 
-    // فحص رقم المسؤول
     if (cleanChatId === cleanAdminPhone) {
         console.log(`✅ Admin detected by phone number: ${ADMIN_PHONE}`);
         return true;
     }
 
-    // فحص fromMe flag
     if (isFromMe) {
         console.log(`✅ Admin detected by fromMe flag`);
         return true;
@@ -295,25 +278,19 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
     return false;
 }
 
-// 🔥🔥🔥 فحص Firebase لآخر 50 رسالة والبحث عن كلمة السر في رسائل المسؤول
 async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
     try {
         const messages = await getUserMessages(INSTANCE_ID, cleanNumber, 50);
         
         if (!messages || messages.length === 0) {
-            console.log(`🔍 [Firebase Check] No messages found for ${cleanNumber}`);
             return false;
         }
         
-        console.log(`🔍 [Firebase Check] Got ${messages.length} messages for ${cleanNumber}`);
-        
         for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
-            
             if (msg.fromMe !== true) continue;
             
             const messageKey = `${cleanNumber}_${msg.timestamp}`;
-            
             if (lastCheckedMessage[messageKey]) continue;
             
             lastCheckedMessage[messageKey] = Date.now();
@@ -321,19 +298,198 @@ async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
             const msgText = msg.message || '';
             const lowerMsg = msgText.toLowerCase();
             
-            console.log(`🔍 [Firebase Check] Checking admin message in ${cleanNumber}: "${msgText.substring(0, 50)}..."`);
-            
             if (STOP_TRIGGERS.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
-                console.log(`🔥🔥🔥 [Firebase Check] SECRET PHRASE DETECTED in ${cleanNumber}!`);
-                console.log(`📝 Full message: "${msgText.substring(0, 200)}"`);
+                console.log(`🔥🔥🔥 SECRET PHRASE DETECTED in ${cleanNumber}!`);
                 return true;
             }
         }
-        
         return false;
     } catch (error) {
         console.error(`❌ [Firebase Check] Error:`, error.message);
         return false;
+    }
+}
+
+// 🔥🔥🔥 دالة إنشاء ملخص الأوردر للتأكيد
+function createOrderSummary(order) {
+    return `📦 **تأكيد طلب الشحن - النمر للشحن** 📦
+
+━━━━━━━━━━━━━━━━━━━━━
+**بيانات الراسل:**
+• اسم الراسل: ${order.senderName || '❌ غير مدخل'}
+• رقم التواصل: ${order.senderPhone || '❌ غير مدخل'}
+• العنوان بالتفاصيل: ${order.senderAddress || '❌ غير مدخل'}
+
+**بيانات الشحنة:**
+• محتويات الأوردر: ${order.orderContents || '❌ غير مدخل'}
+• إجمالي المبلغ: ${order.totalAmount || '❌ غير مدخل'} جنيه
+
+**بيانات المستلم:**
+• اسم المستلم: ${order.receiverName || '❌ غير مدخل'}
+• رقم التواصل: ${order.receiverPhone || '❌ غير مدخل'}
+• رقم آخر: ${order.receiverAltPhone || '❌ غير مدخل'}
+• المحافظة: ${order.governorate || '❌ غير مدخل'}
+• العنوان بالتفاصيل: ${order.receiverAddress || '❌ غير مدخل'}
+
+━━━━━━━━━━━━━━━━━━━━━
+✅ هل البيانات دي صحيحة؟
+
+📝 اكتب **نعم** لتأكيد الأوردر
+✏️ اكتب **تعديل** لتغيير البيانات
+
+للخروج من طلب الشحن اكتب **إلغاء**
+━━━━━━━━━━━━━━━━━━━━━`;
+}
+
+// 🔥🔥🔥 دالة معالجة فلو إنشاء الأوردر خطوة بخطوة
+async function handleOrderFlow(chatId, message, sendMessageFunc) {
+    const currentStep = orderStep[chatId];
+    const currentOrder = orderData[chatId] || { _timestamp: Date.now() };
+    
+    // بداية الفلو - أول مرة
+    if (!currentStep) {
+        orderStep[chatId] = "senderName";
+        orderData[chatId] = { _timestamp: Date.now() };
+        await sendMessageFunc(chatId, "📝 تمام يا فندم 👌 نبدأ تسجيل الأوردر\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل:");
+        return true;
+    }
+    
+    // معالجة كل خطوة حسب المرحلة
+    switch (currentStep) {
+        case "senderName":
+            currentOrder.senderName = message;
+            orderStep[chatId] = "senderPhone";
+            await sendMessageFunc(chatId, "📞 ممتاز ✏️ من فضلك اكتب **رقم التواصل** للراسل:");
+            break;
+            
+        case "senderPhone":
+            currentOrder.senderPhone = message;
+            orderStep[chatId] = "senderAddress";
+            await sendMessageFunc(chatId, "📍 تمام ✏️ من فضلك اكتب **عنوان الراسل** بالتفصيل (الشارع - المنطقة - أقرب معلم):");
+            break;
+            
+        case "senderAddress":
+            currentOrder.senderAddress = message;
+            orderStep[chatId] = "orderContents";
+            await sendMessageFunc(chatId, "📦 ممتاز ✏️ من فضلك اكتب **محتويات الأوردر** (نوع البضاعة - الوزن التقريبي):");
+            break;
+            
+        case "orderContents":
+            currentOrder.orderContents = message;
+            orderStep[chatId] = "totalAmount";
+            await sendMessageFunc(chatId, "💰 تمام ✏️ من فضلك اكتب **إجمالي المبلغ** المستلم (بالجنيه المصري):");
+            break;
+            
+        case "totalAmount":
+            currentOrder.totalAmount = message;
+            orderStep[chatId] = "receiverName";
+            await sendMessageFunc(chatId, "👤 ممتاز ✏️ من فضلك اكتب **اسم المستلم** بالكامل:");
+            break;
+            
+        case "receiverName":
+            currentOrder.receiverName = message;
+            orderStep[chatId] = "receiverPhone";
+            await sendMessageFunc(chatId, "📞 تمام ✏️ من فضلك اكتب **رقم التواصل** للمستلم:");
+            break;
+            
+        case "receiverPhone":
+            currentOrder.receiverPhone = message;
+            orderStep[chatId] = "receiverAltPhone";
+            await sendMessageFunc(chatId, "📞 ✏️ من فضلك اكتب **رقم آخر** للمستلم (اختياري - اكتب 'لا' إذا لم يوجد):");
+            break;
+            
+        case "receiverAltPhone":
+            if (message.toLowerCase() !== 'لا' && message.toLowerCase() !== 'لاء') {
+                currentOrder.receiverAltPhone = message;
+            } else {
+                currentOrder.receiverAltPhone = "لا يوجد";
+            }
+            orderStep[chatId] = "governorate";
+            await sendMessageFunc(chatId, "📍 تمام ✏️ من فضلك اكتب **المحافظة** (مثال: الإسكندرية - القاهرة - الجيزة):");
+            break;
+            
+        case "governorate":
+            currentOrder.governorate = message;
+            orderStep[chatId] = "receiverAddress";
+            await sendMessageFunc(chatId, "🏠 ممتاز ✏️ من فضلك اكتب **عنوان المستلم** بالتفصيل (الشارع - المنطقة - أقرب معلم):");
+            break;
+            
+        case "receiverAddress":
+            currentOrder.receiverAddress = message;
+            // انتهى جمع البيانات - نعرض ملخص التأكيد
+            delete orderStep[chatId];
+            orderData[chatId] = currentOrder;
+            
+            const summary = createOrderSummary(currentOrder);
+            await sendMessageFunc(chatId, summary);
+            break;
+            
+        default:
+            delete orderStep[chatId];
+            delete orderData[chatId];
+            await sendMessageFunc(chatId, "⚠️ حدث خطأ. اكتب 'طلب شحن' مرة أخرى للبدء من جديد.");
+            break;
+    }
+    
+    // حفظ البيانات المحدثة
+    orderData[chatId] = currentOrder;
+    return true;
+}
+
+// 🔥🔥🔥 دالة معالجة تأكيد الأوردر أو تعديله
+async function handleOrderConfirmation(chatId, message, sendMessageFunc) {
+    const currentOrder = orderData[chatId];
+    
+    if (!currentOrder) {
+        return false;
+    }
+    
+    const lowerMsg = message.toLowerCase().trim();
+    
+    // تأكيد الأوردر
+    if (lowerMsg === 'نعم' || lowerMsg === 'yes' || lowerMsg === 'تم') {
+        // هنا تقدر تحفظ الأوردر في Firebase أو ترسله للإدارة
+        console.log(`✅ Order confirmed for ${chatId}:`, currentOrder);
+        
+        // إرسال رسالة التأكيد النهائية
+        const finalMessage = `✅ **تم تأكيد طلب الشحن بنجاح!** ✅
+
+📦 رقم الطلب: #${Date.now().toString().slice(-8)}
+📅 تاريخ الطلب: ${new Date().toLocaleString('ar-EG')}
+
+سيتم التواصل معك خلال 24 ساعة لتأكيد موعد الاستلام.
+
+📞 للاستفسار: اضغط 6
+
+شكراً لثقتكم في النمر للشحن 🐯`;
+        
+        await sendMessageFunc(chatId, finalMessage);
+        
+        // تنظيف البيانات بعد التأكيد
+        delete orderData[chatId];
+        delete orderStep[chatId];
+        return true;
+    }
+    
+    // تعديل الأوردر
+    else if (lowerMsg === 'تعديل' || lowerMsg === 'edit') {
+        orderStep[chatId] = "senderName";
+        await sendMessageFunc(chatId, "✏️ تم تفعيل وضع التعديل. هتسألك الخطوات من الأول.\n\n📝 من فضلك اكتب **اسم الراسل** بالكامل:");
+        return true;
+    }
+    
+    // إلغاء الأوردر
+    else if (lowerMsg === 'إلغاء' || lowerMsg === 'cancel' || lowerMsg === 'الغاء') {
+        delete orderData[chatId];
+        delete orderStep[chatId];
+        await sendMessageFunc(chatId, "❌ تم إلغاء طلب الشحن.\n\nيمكنك بدء طلب جديد في أي وقت بكتابة 'طلب شحن'.\n\nللعودة للقائمة الرئيسية اكتب 'قائمة'");
+        return true;
+    }
+    
+    // رسالة غير مفهومة أثناء التأكيد
+    else {
+        await sendMessageFunc(chatId, "⚠️ لم أفهم الرد.\n\n📝 اكتب **نعم** لتأكيد الأوردر\n✏️ اكتب **تعديل** لتغيير البيانات\n❌ اكتب **إلغاء** للخروج");
+        return true;
     }
 }
 
@@ -347,7 +503,7 @@ let autoRules = [
     },
     {
         id: 1,
-        keywords: ['1', '١', 'داخل الاسكندرية', 'داخل الإسكندرية', 'اسكندرية', 'الإسكندرية', 'اسعار اسكندرية', 'اسعار داخل', 'سعر', 'الثمن', 'كم سعر', 'بكام', 'price', 'alexandria', 'inside alexandria', 'cost', 'how much'],
+        keywords: ['1', '١', 'داخل الاسكندرية', 'داخل الإسكندرية', 'اسكندرية', 'الإسكندرية', 'اسعار اسكندرية', 'اسعار داخل'],
         reply: `📍 أسعار الشحن داخل الإسكندرية / Alexandria Shipping Prices:
 
 💰 60 جنيه / EGP:
@@ -356,199 +512,147 @@ let autoRules = [
 💰 80 جنيه / EGP:
 خارجي - ضواحي الإسكندرية
 
-📌 ملاحظة: البيك أب 10 جنيه على كل أوردر / Pickup fee: 10 EGP per order
+📌 ملاحظة: البيك أب 10 جنيه على كل أوردر
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
         active: true
     },
     {
         id: 2,
-        keywords: ['2', '٢', 'خارج الاسكندرية', 'خارج الإسكندرية', 'خارج', 'اسعار خارج', 'القاهرة', 'الجيزة', 'الدقهلية', 'البحيرة', 'بورسعيد', 'كفر الشيخ', 'الغربية', 'الإسماعيلية', 'دمياط', 'القليوبية', 'السويس', 'الشرقية', 'الفيوم', 'بني سويف', 'المنوفية', 'المنيا', 'أسيوط', 'مطروح', 'الساحل', 'سوهاج', 'البحر الأحمر', 'الوادي الجديد', 'أسوان', 'قنا', 'جنوب سيناء', 'شمال سيناء', 'الأقصر', 'outside alexandria', 'cairo', 'outside', 'other cities'],
-        reply: `📍 أسعار الشحن خارج الإسكندرية / Outside Alexandria Shipping Prices:
+        keywords: ['2', '٢', 'خارج الاسكندرية', 'خارج الإسكندرية', 'خارج', 'اسعار خارج'],
+        reply: `📍 أسعار الشحن خارج الإسكندرية:
 
-💰 120 جنيه / EGP:
-القاهرة - الجيزة
+💰 120 جنيه: القاهرة - الجيزة
+💰 100 جنيه: الدقهلية، البحيرة، بورسعيد، كفر الشيخ، الغربية، الإسماعيلية، دمياط، القليوبية، السويس، الشرقية
+💰 150 جنيه: الفيوم، بني سويف، المنوفية، المنيا، أسيوط، مطروح، الساحل، سوهاج
+💰 180 جنيه: البحر الأحمر، الوادي الجديد، أسوان، قنا
+💰 200 جنيه: جنوب سيناء، شمال سيناء، الأقصر
 
-💰 100 جنيه / EGP:
-الدقهلية، البحيرة، بورسعيد، كفر الشيخ، الغربية، الإسماعيلية، دمياط، القليوبية، السويس، الشرقية
-
-💰 150 جنيه / EGP:
-الفيوم، بني سويف، المنوفية، المنيا، أسيوط، مطروح، الساحل، سوهاج
-
-💰 180 جنيه / EGP:
-البحر الأحمر، الوادي الجديد، أسوان، قنا
-
-💰 200 جنيه / EGP:
-جنوب سيناء، شمال سيناء، الأقصر
-
-للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
         active: true
     },
     {
         id: 3,
-        keywords: ['3', '٣', 'مدة التوصيل', 'التوصيل', 'المدة', 'وقت', 'كم يوم', 'مدة الشحن', 'المدة كام', 'توصيل', 'الشحن', 'delivery time', 'delivery duration', 'how long', 'shipping time', 'when', 'time', 'duration', 'delivery'],
-        reply: `⏱️ مدة التوصيل في النمر للشحن / Delivery Times:
+        keywords: ['3', '٣', 'مدة التوصيل', 'التوصيل', 'المدة', 'وقت', 'كم يوم', 'delivery time'],
+        reply: `⏱️ مدة التوصيل:
 
-• ${companyData.deliveryTimes.north}
-• ${companyData.deliveryTimes.south}
-• ${companyData.deliveryTimes.collection}
+• داخل الوجه البحري: خلال 72 ساعة
+• وجه قبلي: خلال 5 أيام
+• التحصيل: خلال 24 ساعة
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
         active: true
     },
     {
         id: 4,
-        keywords: ['4', '٤', 'طرق الدفع', 'الدفع', 'كيف ادفع', 'ادفع ازاي', 'طرق السداد', 'السداد', 'payment', 'payment methods', 'how to pay', 'pay', 'cash', 'bank transfer', 'instapay', 'vodafone cash', 'wallet'],
-        reply: `💰 طرق الدفع في النمر للشحن / Payment Methods:
+        keywords: ['4', '٤', 'طرق الدفع', 'الدفع', 'payment'],
+        reply: `💰 طرق الدفع:
 
-• كاش / Cash 💵
-• محفظة / Wallet 📱 (فودافون كاش - انستاباي / Vodafone Cash - Instapay)
-• إنستاباي / Instapay 🏦
-• تحويل بنكي / Bank Transfer 💳
+• كاش 💵
+• محفظة 📱 (فودافون كاش - انستاباي)
+• إنستاباي 🏦
+• تحويل بنكي 💳
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
         active: true
     },
     {
         id: 5,
-        keywords: ['5', '٥', 'شروط', 'شروط الشحن', 'سياسة', 'قوانين', 'ممنوع', 'مسموح', 'ضمان', 'terms', 'conditions', 'policy', 'rules', 'shipping terms', 'warranty', 'fragile', 'insurance'],
-        reply: `📋 شروط الشحن في النمر للشحن / Shipping Terms:
+        keywords: ['5', '٥', 'شروط', 'شروط الشحن', 'سياسة', 'terms'],
+        reply: `📋 شروط الشحن:
 
 ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
         active: true
     },
     {
         id: 6,
-        keywords: ['6', '٦', 'خدمة العملاء', 'خدمه العملاء', 'دعم', 'تكلم مع موظف', 'موظف', 'تحكم', 'شكوى', 'مشكلة', 'اتصل بمسؤول', 'مسؤول', 'customer service', 'support', 'agent', 'human', 'complaint', 'problem', 'talk to someone', 'representative', 'issue'],
-        reply: "👤 تم تحويل محادثتك إلى خدمة العملاء في النمر للشحن. سيتم الرد عليك يدوياً في أقرب وقت. شكراً لصبرك.\n\nYour conversation has been transferred to customer service. You will receive a manual reply shortly. Thank you for your patience.",
+        keywords: ['6', '٦', 'خدمة العملاء', 'خدمه العملاء', 'دعم', 'تكلم مع موظف', 'customer service', 'support', 'agent', 'human'],
+        reply: "👤 تم تحويل محادثتك إلى خدمة العملاء. سيتم الرد عليك يدوياً في أقرب وقت.\n\nYour conversation has been transferred to customer service.",
         active: true
     },
     {
         id: 7,
-        keywords: ['7', '٧', 'باقة', 'باقات', 'الباقات', 'اسعار الباقات', 'عروض', 'باقات الشحن', 'أسعار الجديدة', 'package', 'packages', 'new prices', 'bundles', 'الأسعار الجديدة', 'الشحن الفردي', 'أسعار التاجر', 'مرتجعات', 'pickup', 'بيك اب'],
-        reply: `🟡 أسعار الشحنة الفردية / Individual Shipping Prices:
+        keywords: ['7', '٧', 'باقة', 'باقات', 'الباقات', 'package', 'packages', 'new prices'],
+        reply: `🟡 أسعار الشحنة الفردية:
 • من الإبراهيمية للبحري: 60 جنيه
 • من الإبراهيمية لسيدي بشر: 65 جنيه
 • العجمي: 75 جنيه
 • العامرية - برج العرب: 90 جنيه
 
-📌 البيك أب: 10 جنيه على كل أوردر / Pickup fee: 10 EGP per order
+📌 البيك أب: 10 جنيه
 
-━━━━━━━━━━━━━━━━━━━━━
-
-🟡 باقات الشحن / Shipping Packages:
+🟡 باقات الشحن:
 • 10 أوردرات: 60 جنيه لكل أوردر
 • 20 أوردر: 55 جنيه لكل أوردر
 • 50 أوردر: 30 جنيه لكل أوردر
 
-━━━━━━━━━━━━━━━━━━━━━
+🌐 التواصل: ${companyData.contactInfo.phones.join(' | ')}
 
-🟡 نظام المرتجعات / Returns Policy:
-• في حالة رفض العميل دفع الشحن: حضرتك بتدفع الشحن كامل
-• أكثر من 3 مرتجعات: بتدفع نص الشحن
-
-━━━━━━━━━━━━━━━━━━━━━
-
-🟡 أسعار التاجر / Merchant Prices:
-• من الإبراهيمية للبحري: 55 جنيه
-• من الإبراهيمية لسيدي بشر: 65 جنيه
-• العجمي: 75 جنيه
-• العامرية - برج العرب: 90 جنيه
-
-━━━━━━━━━━━━━━━━━━━━━
-
-🌐 بيانات التواصل / Contact Information:
-• الموقع: ${companyData.contactInfo.website}
-• العنوان: ${companyData.contactInfo.address}
-• الهاتف: ${companyData.contactInfo.phones.join(' | ')}
-
-للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
         active: true
     },
     {
         id: 8,
-        keywords: ['8', '٨', 'مندوب', 'شغل', 'فرصة عمل', 'وظيفة', 'توظيف', 'مرتب', 'عمولة', 'job', 'job opportunity', 'courier', 'delivery job', 'employment', 'work', 'salary', 'commission'],
+        keywords: ['8', '٨', 'مندوب', 'شغل', 'فرصة عمل', 'وظيفة', 'job', 'courier'],
         reply: companyData.jobOpportunities.message,
         active: true
     },
     {
         id: 9,
-        keywords: ['9', '٩', 'وكيل', 'وكلاء', 'لورد', 'lord', 'agent', 'agents', 'تكلفة الوكيل', 'نظام تأميني', 'دفع مقدم'],
+        keywords: ['9', '٩', 'وكيل', 'وكلاء', 'لورد', 'lord', 'agent'],
         reply: companyData.lordAgentsTerms.message,
         active: true
     },
     {
         id: 10,
-        keywords: ['طلب شحن', 'شحنة', 'طلب', 'اوردر', 'اطلب', 'شراء', 'عايز أطلب', 'عايز اشتري', 'احجز', 'اريد شحن', 'اريد طلب', 'new order', 'place order', 'order', 'shipping request', 'send package', 'i want to ship', 'book', 'request shipping', 'create order'],
-        reply: `🛍️ لطلب شحنة جديدة في النمر للشحن، يرجى إرسال البيانات التالية / To place a new order, please send:
+        keywords: ['10', '١٠', 'طلب شحن', 'شحنة جديدة', 'اوردر جديد', 'عايز أطلب', 'new order', 'place order', 'order new', 'start order', 'create order'],
+        reply: `🛍️ مرحباً بك في خدمة طلب الشحن الجديد!
 
-📝 **بيانات الراسل:**
-• اسم الراسل بالكامل
-• رقم للتواصل
-• العنوان بالتفاصيل
+سيتم إرشادك خطوة بخطوة لتسجيل بيانات الأوردر.
 
-📦 **بيانات الشحنة:**
-• محتويات الأوردر
-• إجمالي المبلغ
-
-👤 **بيانات المستلم:**
-• اسم المستلم بالكامل
-• رقم التواصل
-• رقم آخر (اختياري)
-• المحافظة
-• العنوان بالتفاصيل
-
-📌 يرجى إرسال كل بيانات الأوردر في رسالة واحدة أو رسائل متتالية.
-
-سيتم إرسال تأكيد الطلب بعد استلام جميع البيانات.
-
-للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+📝 اكتب **موافق** للبدء في تسجيل طلب الشحن الجديد.`,
         active: true
     },
     {
         id: 11,
-        keywords: ['تأكيد', 'تم', 'تمام', 'confirmed', 'ok', 'yes', 'نعم'],
-        reply: `✅ تم استلام بياناتك! سيتم معالجتها وإرسال تأكيد الشحن قريباً.
-
-للتواصل مع خدمة العملاء: اضغط 6`,
+        keywords: ['موافق', 'ok', 'oki', 'oki', 'oki', 'ابدأ', 'start order', 'yes order'],
+        reply: "📝 تمام يا فندم 👌 نبدأ تسجيل الأوردر\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل:",
         active: true
     },
     {
         id: 12,
-        keywords: ['vip', 'VIP', 'نفس اليوم', 'توصيل سريع', 'توصيل فوري', 'سريع', 'عاجل', 'خدمة vip', 'اسرع توصيل', 'same day', 'express', 'urgent', 'fast delivery', 'quick', 'priority', 'rapid'],
-        reply: `🚚 خدمة VIP توصيل نفس اليوم في النمر للشحن / VIP Same Day Delivery:
+        keywords: ['vip', 'VIP', 'نفس اليوم', 'توصيل سريع', 'same day', 'express'],
+        reply: `🚚 خدمة VIP توصيل نفس اليوم:
 
-• متاحة داخل الإسكندرية فقط / Available only in Alexandria
-• السعر يبدأ من 150 جنيه حسب المنطقة والوزن / Starting from 150 EGP depending on area and weight
-• للطلب، تواصل مع خدمة العملاء (اضغط 6) / To order, contact customer service (press 6)
+• متاحة داخل الإسكندرية فقط
+• السعر يبدأ من 150 جنيه
+• للطلب، تواصل مع خدمة العملاء (اضغط 6)
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
         active: true
     },
     {
         id: 13,
-        keywords: ['شكرا', 'ممتاز', 'تمام', 'شكراً', 'تسلم', 'الله يبارك فيك', 'حلو', 'جميل', 'تم', 'مشكور', 'thank', 'thanks', 'great', 'excellent', 'good', 'perfect', 'ok', 'awesome', 'nice', 'done'],
-        reply: `🎉 شكراً لك على تواصلك مع النمر للشحن! / Thank you for contacting ELNMR Shipping!
+        keywords: ['شكرا', 'ممتاز', 'تمام', 'شكراً', 'تسلم', 'thank', 'thanks', 'great'],
+        reply: `🎉 شكراً لك على تواصلك مع النمر للشحن!
 
-نحن في خدمتك دائماً. إذا احتجت أي مساعدة أخرى، فقط اكتب 'قائمة' للعودة للخدمات المتاحة.
-We are always at your service. If you need any further assistance, just type 'menu' to return to available services.
+نحن في خدمتك دائماً. إذا احتجت أي مساعدة أخرى، فقط اكتب 'قائمة'.
 
-نتمنى لك يوماً سعيداً! 🐯 / Have a great day! 🐯`,
+نتمنى لك يوماً سعيداً! 🐯`,
         active: true
     },
     {
         id: 14,
-        keywords: ['تواصل', 'اتصال', 'رقم', 'تليفون', 'موبايل', 'واتساب', 'contact', 'phone', 'number', 'call', 'whatsapp', 'website', 'موقع', 'عنوان'],
-        reply: `🌐 بيانات التواصل مع النمر للشحن / Contact Information:
+        keywords: ['تواصل', 'اتصال', 'رقم', 'تليفون', 'موبايل', 'contact', 'phone'],
+        reply: `🌐 بيانات التواصل:
 
-• الموقع الإلكتروني / Website: ${companyData.contactInfo.website}
-• العنوان / Address: ${companyData.contactInfo.address}
-• أرقام الهاتف / Phone Numbers:
-  ${companyData.contactInfo.phones.join('\n  ')}
+• الموقع: ${companyData.contactInfo.website}
+• العنوان: ${companyData.contactInfo.address}
+• الهاتف: ${companyData.contactInfo.phones.join(' | ')}
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة' / Type 'menu' to return to main menu`,
+للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
         active: true
     }
 ];
@@ -557,11 +661,9 @@ function findAutoReply(message) {
     if (!message) return null;
     const lowerMsg = message.toLowerCase().trim();
     
-    console.log(`🔍 [${INSTANCE.name}] Searching for reply to: "${lowerMsg}"`);
-    
     const numberMap = {
-        '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
-        '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6, '٧': 7, '٨': 8, '٩': 9
+        '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
+        '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6, '٧': 7, '٨': 8, '٩': 9, '١٠': 10
     };
     
     if (numberMap[lowerMsg] !== undefined) {
@@ -570,7 +672,6 @@ function findAutoReply(message) {
             if (!rule.active) continue;
             for (let keyword of rule.keywords) {
                 if (keyword === number.toString()) {
-                    console.log(`✅ Number match: ${number}`);
                     return rule.reply;
                 }
             }
@@ -582,7 +683,6 @@ function findAutoReply(message) {
         for (let keyword of rule.keywords) {
             const keywordLower = keyword.toLowerCase();
             if (lowerMsg === keywordLower || lowerMsg.includes(keywordLower)) {
-                console.log(`✅ Match found: ${keyword}`);
                 return rule.reply;
             }
         }
@@ -593,7 +693,7 @@ function findAutoReply(message) {
 
 async function sendWhatsAppMessage(chat_id, message) {
     try {
-        console.log(`📤 [${INSTANCE.name}] Sending to: ${chat_id}`);
+        console.log(`📤 Sending to: ${chat_id}`);
         console.log(`📤 Message: ${message.substring(0, 100)}...`);
         
         const response = await axios.post(
@@ -602,7 +702,7 @@ async function sendWhatsAppMessage(chat_id, message) {
             { headers: { "token": INSTANCE.token, "Content-Type": "application/json" } }
         );
         
-        console.log(`✅ [${INSTANCE.name}] Sent successfully`);
+        console.log(`✅ Sent successfully`);
         return { success: true, message: message };
     } catch (error) {
         console.error(`❌ Send failed:`, error.response?.data || error.message);
@@ -639,12 +739,12 @@ module.exports = async (req, res) => {
             admin_phone: ADMIN_PHONE,
             stop_triggers: STOP_TRIGGERS,
             storage: 'Firebase',
-            message: 'Webhook is working - Bot stops when secret phrase detected!',
+            message: 'Webhook is working - Professional Order Flow Enabled!',
             timestamp: new Date().toISOString()
         });
     }
     
-    console.log(`📩 [${INSTANCE.name}] Webhook received:`, new Date().toISOString());
+    console.log(`📩 Webhook received:`, new Date().toISOString());
     
     const data = req.body;
     let rawChatId = null;
@@ -658,8 +758,8 @@ module.exports = async (req, res) => {
     }
     
     if (!rawChatId || !message) {
-        console.log(`⚠️ Missing chat_id or message`);
-        return res.status(200).json({ received: true, error: 'Missing data' });
+        console.log(`⚠️ Missing data`);
+        return res.status(200).json({ received: true });
     }
     
     let chatId = rawChatId;
@@ -673,69 +773,68 @@ module.exports = async (req, res) => {
     
     console.log(`📱 From: ${rawChatId}`);
     console.log(`💬 Message: ${message}`);
-    console.log(`👤 Is from me (Wapilot flag): ${isFromMe}`);
     
     await saveMessage(INSTANCE_ID, cleanNumber, message, isFromMe);
     
-    // 🔥🔥🔥 الأول: فحص Webhook العادي
+    // فحص المسؤول
     let isAdmin = isMessageFromAdmin(message, isFromMe, chatId);
-    
-    // 🔥🔥🔥 الثاني: لو مش Admin، نفحص Firebase لآخر 50 رسالة
     if (!isAdmin) {
-        console.log(`🔍 [Firebase] Scanning last 50 messages for secret phrase...`);
         isAdmin = await checkFirebaseForAdminMessage(chatId, cleanNumber);
     }
     
-    console.log(`👑 Is Admin/Secret Phrase (detected): ${isAdmin}`);
-    
-    // 🔥🔥🔥 لو لقينا كلمة سر، نوقف البوت
     if (isAdmin) {
         await saveUserState(INSTANCE_ID, chatId, "human");
         await setAutoTimeout(chatId);
-        console.log(`👨‍💼 [${INSTANCE.name}] 🛑🛑🛑 BOT STOPPED for ${chatId} for 30 minutes`);
-        console.log(`📊 MODE: human`);
-        return res.status(200).json({ success: true, mode: "human", detected: "admin" });
+        console.log(`🛑 BOT STOPPED for ${chatId}`);
+        return res.status(200).json({ success: true, mode: "human" });
     }
     
-    // 🔥 نتأكد إذا كان المستخدم في وضع human (البوت ساكت)
     const currentMode = await getUserState(INSTANCE_ID, chatId);
-    console.log(`📊 Current mode for ${chatId}: ${currentMode || "bot"}`);
     
     if (currentMode === "human") {
-        console.log(`🤫 [${INSTANCE.name}] Human mode active, bot silent`);
+        console.log(`🤫 Human mode active, bot silent`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    // 🔥 فحص طلب خدمة العملاء
+    // 🔥🔥🔥 معالجة فلو الأوردر - الأولوية القصوى
+    // لو العميل في مرحلة إنشاء أوردر (عنده orderStep)
+    if (orderStep[chatId]) {
+        const handled = await handleOrderFlow(chatId, message, sendWhatsAppMessage);
+        if (handled) {
+            return res.status(200).json({ success: true, flow: "order_wizard" });
+        }
+    }
+    
+    // لو العميل في مرحلة تأكيد الأوردر (عنده orderData وملوش orderStep)
+    if (orderData[chatId] && !orderStep[chatId]) {
+        const handled = await handleOrderConfirmation(chatId, message, sendWhatsAppMessage);
+        if (handled) {
+            return res.status(200).json({ success: true, flow: "order_confirmation" });
+        }
+    }
+    
+    // فحص طلب خدمة العملاء
     const isCustomerServiceRequest = (
-        message.trim() === '6' || 
-        message.trim() === '٦' ||
+        message.trim() === '6' || message.trim() === '٦' ||
         message.toLowerCase().includes('خدمة العملاء') ||
-        message.toLowerCase().includes('خدمه العملاء') ||
         message.toLowerCase().includes('customer service') ||
         message.toLowerCase().includes('support') ||
         message.toLowerCase().includes('agent') ||
-        message.toLowerCase().includes('human') ||
-        message.toLowerCase().includes('موظف')
+        message.toLowerCase().includes('human')
     );
     
     if (isCustomerServiceRequest) {
         await saveUserState(INSTANCE_ID, chatId, "human");
         await setAutoTimeout(chatId);
-        console.log(`👨‍💼 [${INSTANCE.name}] User requested human support - BOT STOPPED`);
-        console.log(`📊 MODE: human`);
         
         const autoReply = findAutoReply(message);
         if (autoReply) {
-            const result = await sendWhatsAppMessage(chatId, autoReply);
-            if (result.success) {
-                await saveMessage(INSTANCE_ID, cleanNumber, autoReply, true);
-            }
+            await sendWhatsAppMessage(chatId, autoReply);
         }
         return res.status(200).json({ success: true, mode: "human" });
     }
     
-    // 🔥 فحص طلب الرجوع للقائمة (لإعادة تفعيل البوت)
+    // فحص طلب الرجوع للقائمة
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
     if (isMenuRequest && currentMode === "human") {
         if (timeouts[chatId]) {
@@ -743,24 +842,19 @@ module.exports = async (req, res) => {
             delete timeouts[chatId];
         }
         await deleteUserState(INSTANCE_ID, chatId);
-        console.log(`🤖 [${INSTANCE.name}] User ${chatId} -> BOT REACTIVATED (requested menu)`);
-        console.log(`📊 MODE: bot`);
+        console.log(`🤖 BOT REACTIVATED`);
     }
     
-    // 🔥 البحث عن رد تلقائي
+    // البحث عن رد تلقائي عادي
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
-        console.log(`🤖 [${INSTANCE.name}] Sending auto-reply to ${chatId}...`);
         const result = await sendWhatsAppMessage(chatId, autoReply);
-        
         if (result.success) {
             await saveMessage(INSTANCE_ID, cleanNumber, autoReply, true);
         }
-        
         return res.status(200).json({ success: result.success, replied: true });
-    } else {
-        console.log(`⚠️ [${INSTANCE.name}] No auto-reply found for: "${message}"`);
-        return res.status(200).json({ success: true, replied: false });
     }
+    
+    return res.status(200).json({ success: true, replied: false });
 };
