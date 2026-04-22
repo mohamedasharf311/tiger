@@ -345,11 +345,12 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
     const currentStep = orderStep[chatId];
     const currentOrder = orderData[chatId] || { _timestamp: Date.now() };
     
-    // 🔥 مهم جداً: تجاهل أي رسالة فيها أرقام من 1-9 لو احنا في الفلو
-    // لأن المستخدم ممكن يضغط رقم بالغلط
-    const numberKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    // 🔥🔥🔥 أهم حاجة: تجاهل أي رسالة فيها أرقام من 1-9 لو احنا في الفلو
+    const numberKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 
+                        '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩', '١٠'];
+    
     if (numberKeys.includes(message.trim()) && currentStep) {
-        console.log(`⚠️ User pressed number ${message} during order flow, ignoring and re-asking question`);
+        console.log(`⚠️ User pressed number ${message} during order flow, ignoring`);
         
         const stepQuestions = {
             senderName: "✏️ من فضلك اكتب **اسم الراسل** بالكامل:",
@@ -359,13 +360,13 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             totalAmount: "💰 من فضلك اكتب **إجمالي المبلغ**:",
             receiverName: "👤 من فضلك اكتب **اسم المستلم** بالكامل:",
             receiverPhone: "📞 من فضلك اكتب **رقم التواصل** للمستلم:",
-            receiverAltPhone: "📞 من فضلك اكتب **رقم آخر** للمستلم (اختياري - اكتب 'لا' إذا لم يوجد):",
+            receiverAltPhone: "📞 من فضلك اكتب **رقم آخر** للمستلم (اختياري):",
             governorate: "📍 من فضلك اكتب **المحافظة**:",
             receiverAddress: "🏠 من فضلك اكتب **عنوان المستلم** بالتفصيل:"
         };
         
         const question = stepQuestions[currentStep] || "✏️ من فضلك اكتب البيانات المطلوبة:";
-        await sendMessageFunc(chatId, `⚠️ يرجى كتابة البيانات المطلوبة وليس الأرقام.\n\n${question}`);
+        await sendMessageFunc(chatId, `⚠️ يرجى كتابة البيانات المطلوبة (اسم - عنوان - رقم) وليس أرقام القائمة.\n\n${question}`);
         return true;
     }
     
@@ -856,7 +857,7 @@ module.exports = async (req, res) => {
     }
     
     // 🔥🔥🔥 الأولوية القصوى: فلو إنشاء الأوردر (Step by Step)
-    // ده لازم يبقى قبل أي حاجة تانية عشان الرقم 3 ميخربش الفلو
+    // ده لازم يبقى قبل أي حاجة تانية عشان الأرقام متخربش الفلو
     
     // الحالة 1: العميل في مرحلة إنشاء أوردر (عنده orderStep)
     if (orderStep[chatId]) {
