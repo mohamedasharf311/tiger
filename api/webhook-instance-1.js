@@ -336,6 +336,63 @@ function createOrderSummary(order) {
 ━━━━━━━━━━━━━━━━━━━━━`;
 }
 
+// 🔥🔥🔥 دوال التحقق من صحة البيانات (Validation)
+function isValidName(name) {
+    if (!name || name.trim() === '') return false;
+    
+    const words = name.trim().split(/\s+/);
+    
+    // لو الجملة طويلة جداً (أكثر من 6 كلمات)
+    if (words.length > 6) return false;
+    
+    // لو فيها علامات استفهام
+    if (name.includes('؟') || name.includes('?')) return false;
+    
+    // لو فيها كلمات دالة على سؤال
+    const questionWords = ['ليه', 'مبيكملش', 'لي', 'مش', 'عايز', 'ازاي', 'ايه', 'اي', 'بتاع', 'يعني'];
+    for (let word of questionWords) {
+        if (name.toLowerCase().includes(word)) return false;
+    }
+    
+    return true;
+}
+
+function isValidPhone(phone) {
+    const phoneRegex = /^01[0125][0-9]{8}$/;
+    return phoneRegex.test(phone);
+}
+
+function isValidAmount(amount) {
+    const num = parseFloat(amount);
+    return !isNaN(num) && num > 0 && num < 1000000;
+}
+
+function isValidGovernorate(governorate) {
+    const governorates = [
+        'القاهرة', 'الجيزة', 'الإسكندرية', 'الدقهلية', 'البحيرة', 'بورسعيد',
+        'كفر الشيخ', 'الغربية', 'الإسماعيلية', 'دمياط', 'القليوبية', 'السويس',
+        'الشرقية', 'الفيوم', 'بني سويف', 'المنوفية', 'المنيا', 'أسيوط',
+        'مطروح', 'الساحل', 'سوهاج', 'البحر الأحمر', 'الوادي الجديد', 'أسوان',
+        'قنا', 'جنوب سيناء', 'شمال سيناء', 'الأقصر'
+    ];
+    
+    return governorates.some(g => governorate.includes(g));
+}
+
+function isValidAddress(address) {
+    if (!address || address.trim() === '') return false;
+    if (address.length < 5) return false;
+    if (address.includes('؟') || address.includes('?')) return false;
+    return true;
+}
+
+function isValidOrderContents(contents) {
+    if (!contents || contents.trim() === '') return false;
+    if (contents.length < 3) return false;
+    return true;
+}
+
+// 🔥🔥🔥 دالة معالجة فلو إنشاء الأوردر مع Validation كامل
 async function handleOrderFlow(chatId, message, sendMessageFunc) {
     const currentStep = orderStep[chatId];
     const currentOrder = orderData[chatId] || { _timestamp: Date.now() };
@@ -344,77 +401,126 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
     if (!currentStep) {
         orderStep[chatId] = "senderName";
         orderData[chatId] = { _timestamp: Date.now() };
-        await sendMessageFunc(chatId, "🚫 أنت الآن في تسجيل أوردر\n❗ لا تستخدم أرقام القائمة\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل:");
+        await sendMessageFunc(chatId, "🚫 أنت الآن في تسجيل أوردر\n❗ لا تستخدم أرقام القائمة\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل (مثال: محمد أحمد علي):");
         return true;
     }
     
-    // معالجة كل خطوة
+    // معالجة كل خطوة مع Validation
     switch (currentStep) {
         case "senderName":
+            // Validation الاسم
             if (!message || message.trim() === '') {
-                await sendMessageFunc(chatId, "⚠️ اسم الراسل لا يمكن أن يكون فارغًا.\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل:");
+                await sendMessageFunc(chatId, "⚠️ اسم الراسل لا يمكن أن يكون فارغًا.\n\n✏️ اكتب اسم الراسل بالكامل (مثال: محمد أحمد علي):");
                 return true;
             }
+            
+            if (!isValidName(message)) {
+                await sendMessageFunc(chatId, "⚠️ من فضلك اكتب **اسم فقط** بدون أي جمل أو أسئلة.\n\n✏️ مثال: محمد أحمد علي\n\n❌ ممنوع: ليه مبيكملش - عايز اعرف - ازاي");
+                return true;
+            }
+            
             currentOrder.senderName = message;
             orderStep[chatId] = "senderPhone";
-            await sendMessageFunc(chatId, "📞 ممتاز\n\n✏️ من فضلك اكتب **رقم التواصل** للراسل:");
+            await sendMessageFunc(chatId, "📞 ممتاز\n\n✏️ من فضلك اكتب **رقم التواصل** للراسل (مثال: 01012345678):");
             break;
             
         case "senderPhone":
+            // Validation رقم الهاتف
             if (!message || message.trim() === '') {
-                await sendMessageFunc(chatId, "⚠️ رقم التواصل لا يمكن أن يكون فارغًا.\n\n📞 من فضلك اكتب **رقم التواصل** للراسل:");
+                await sendMessageFunc(chatId, "⚠️ رقم التواصل لا يمكن أن يكون فارغًا.\n\n📞 اكتب رقم مصري صحيح (مثال: 01012345678):");
                 return true;
             }
+            
+            if (!isValidPhone(message)) {
+                await sendMessageFunc(chatId, "⚠️ رقم غير صحيح.\n\n📞 اكتب رقم مصري صحيح مكون من 11 رقم ويبدأ بـ 010 أو 011 أو 012 أو 015 (مثال: 01012345678):");
+                return true;
+            }
+            
             currentOrder.senderPhone = message;
             orderStep[chatId] = "senderAddress";
             await sendMessageFunc(chatId, "📍 ممتاز\n\n✏️ من فضلك اكتب **عنوان الراسل** بالتفصيل (الشارع - المنطقة - أقرب معلم):");
             break;
             
         case "senderAddress":
+            // Validation العنوان
             if (!message || message.trim() === '') {
-                await sendMessageFunc(chatId, "⚠️ عنوان الراسل لا يمكن أن يكون فارغًا.\n\n📍 من فضلك اكتب **عنوان الراسل** بالتفصيل:");
+                await sendMessageFunc(chatId, "⚠️ عنوان الراسل لا يمكن أن يكون فارغًا.\n\n📍 اكتب العنوان بالتفصيل:");
                 return true;
             }
+            
+            if (!isValidAddress(message)) {
+                await sendMessageFunc(chatId, "⚠️ العنوان قصير جداً أو غير واضح.\n\n📍 اكتب العنوان بالتفصيل (الشارع - المنطقة - أقرب معلم):");
+                return true;
+            }
+            
             currentOrder.senderAddress = message;
             orderStep[chatId] = "orderContents";
-            await sendMessageFunc(chatId, "📦 ممتاز\n\n✏️ من فضلك اكتب **محتويات الأوردر** (نوع البضاعة - الوزن التقريبي):");
+            await sendMessageFunc(chatId, "📦 ممتاز\n\n✏️ من فضلك اكتب **محتويات الأوردر** (نوع البضاعة - الوزن التقريبي - عدد القطع):");
             break;
             
         case "orderContents":
+            // Validation محتويات الأوردر
             if (!message || message.trim() === '') {
-                await sendMessageFunc(chatId, "⚠️ محتويات الأوردر لا يمكن أن تكون فارغة.\n\n📦 من فضلك اكتب **محتويات الأوردر**:");
+                await sendMessageFunc(chatId, "⚠️ محتويات الأوردر لا يمكن أن تكون فارغة.\n\n📦 اكتب محتويات الأوردر بالتفصيل:");
                 return true;
             }
+            
+            if (!isValidOrderContents(message)) {
+                await sendMessageFunc(chatId, "⚠️ محتويات الأوردر غير واضحة.\n\n📦 اكتب نوع البضاعة والوزن التقريبي (مثال: ملابس - 5 كجم):");
+                return true;
+            }
+            
             currentOrder.orderContents = message;
             orderStep[chatId] = "totalAmount";
-            await sendMessageFunc(chatId, "💰 ممتاز\n\n✏️ من فضلك اكتب **إجمالي المبلغ** المستلم (بالجنيه المصري):");
+            await sendMessageFunc(chatId, "💰 ممتاز\n\n✏️ من فضلك اكتب **إجمالي المبلغ** المستلم (بالجنيه المصري، أرقام فقط):");
             break;
             
         case "totalAmount":
+            // Validation المبلغ
             if (!message || message.trim() === '') {
-                await sendMessageFunc(chatId, "⚠️ إجمالي المبلغ لا يمكن أن يكون فارغًا.\n\n💰 من فضلك اكتب **إجمالي المبلغ**:");
+                await sendMessageFunc(chatId, "⚠️ إجمالي المبلغ لا يمكن أن يكون فارغًا.\n\n💰 اكتب المبلغ بالأرقام فقط (مثال: 150):");
                 return true;
             }
+            
+            if (!isValidAmount(message)) {
+                await sendMessageFunc(chatId, "⚠️ المبلغ غير صحيح.\n\n💰 اكتب رقم فقط (مثال: 150) ولا تكتب كلمات أو حروف:");
+                return true;
+            }
+            
             currentOrder.totalAmount = message;
             orderStep[chatId] = "receiverName";
-            await sendMessageFunc(chatId, "👤 ممتاز\n\n✏️ من فضلك اكتب **اسم المستلم** بالكامل:");
+            await sendMessageFunc(chatId, "👤 ممتاز\n\n✏️ من فضلك اكتب **اسم المستلم** بالكامل (مثال: أحمد محمود):");
             break;
             
         case "receiverName":
+            // Validation اسم المستلم
             if (!message || message.trim() === '') {
-                await sendMessageFunc(chatId, "⚠️ اسم المستلم لا يمكن أن يكون فارغًا.\n\n👤 من فضلك اكتب **اسم المستلم** بالكامل:");
+                await sendMessageFunc(chatId, "⚠️ اسم المستلم لا يمكن أن يكون فارغًا.\n\n👤 اكتب اسم المستلم بالكامل:");
                 return true;
             }
+            
+            if (!isValidName(message)) {
+                await sendMessageFunc(chatId, "⚠️ من فضلك اكتب **اسم فقط** بدون أي جمل أو أسئلة.\n\n✏️ مثال: أحمد محمود علي");
+                return true;
+            }
+            
             currentOrder.receiverName = message;
             orderStep[chatId] = "receiverPhone";
-            await sendMessageFunc(chatId, "📞 ممتاز\n\n✏️ من فضلك اكتب **رقم التواصل** للمستلم:");
+            await sendMessageFunc(chatId, "📞 ممتاز\n\n✏️ من فضلك اكتب **رقم التواصل** للمستلم (مثال: 01012345678):");
             break;
             
         case "receiverPhone":
+            // Validation رقم المستلم
             if (!message || message.trim() === '') {
-                await sendMessageFunc(chatId, "⚠️ رقم التواصل للمستلم لا يمكن أن يكون فارغًا.\n\n📞 من فضلك اكتب **رقم التواصل** للمستلم:");
+                await sendMessageFunc(chatId, "⚠️ رقم التواصل للمستلم لا يمكن أن يكون فارغًا.\n\n📞 اكتب رقم مصري صحيح:");
                 return true;
             }
+            
+            if (!isValidPhone(message)) {
+                await sendMessageFunc(chatId, "⚠️ رقم غير صحيح.\n\n📞 اكتب رقم مصري صحيح مكون من 11 رقم:");
+                return true;
+            }
+            
             currentOrder.receiverPhone = message;
             orderStep[chatId] = "receiverAltPhone";
             await sendMessageFunc(chatId, "📞 ✏️ من فضلك اكتب **رقم آخر** للمستلم (اختياري - اكتب 'لا' إذا لم يوجد):");
@@ -422,6 +528,10 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             
         case "receiverAltPhone":
             if (message.toLowerCase() !== 'لا' && message.toLowerCase() !== 'لاء') {
+                if (!isValidPhone(message) && message !== 'لا') {
+                    await sendMessageFunc(chatId, "⚠️ رقم غير صحيح أو اكتب 'لا' إذا لم يوجد رقم آخر.\n\n📞 اكتب رقم صحيح أو 'لا':");
+                    return true;
+                }
                 currentOrder.receiverAltPhone = message;
             } else {
                 currentOrder.receiverAltPhone = "لا يوجد";
@@ -431,20 +541,34 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             break;
             
         case "governorate":
+            // Validation المحافظة
             if (!message || message.trim() === '') {
-                await sendMessageFunc(chatId, "⚠️ المحافظة لا يمكن أن تكون فارغة.\n\n📍 من فضلك اكتب **المحافظة**:");
+                await sendMessageFunc(chatId, "⚠️ المحافظة لا يمكن أن تكون فارغة.\n\n📍 اكتب اسم المحافظة بشكل صحيح:");
                 return true;
             }
+            
+            if (!isValidGovernorate(message)) {
+                await sendMessageFunc(chatId, "⚠️ اسم المحافظة غير صحيح أو غير موجود.\n\n📍 المحافظات المتاحة:\nالقاهرة، الجيزة، الإسكندرية، الدقهلية، البحيرة، بورسعيد، كفر الشيخ، الغربية، الإسماعيلية، دمياط، القليوبية، السويس، الشرقية، الفيوم، بني سويف، المنوفية، المنيا، أسيوط، مطروح، الساحل، سوهاج، البحر الأحمر، الوادي الجديد، أسوان، قنا، جنوب سيناء، شمال سيناء، الأقصر");
+                return true;
+            }
+            
             currentOrder.governorate = message;
             orderStep[chatId] = "receiverAddress";
             await sendMessageFunc(chatId, "🏠 ممتاز\n\n✏️ من فضلك اكتب **عنوان المستلم** بالتفصيل (الشارع - المنطقة - أقرب معلم):");
             break;
             
         case "receiverAddress":
+            // Validation عنوان المستلم
             if (!message || message.trim() === '') {
-                await sendMessageFunc(chatId, "⚠️ عنوان المستلم لا يمكن أن يكون فارغًا.\n\n🏠 من فضلك اكتب **عنوان المستلم** بالتفصيل:");
+                await sendMessageFunc(chatId, "⚠️ عنوان المستلم لا يمكن أن يكون فارغًا.\n\n🏠 اكتب العنوان بالتفصيل:");
                 return true;
             }
+            
+            if (!isValidAddress(message)) {
+                await sendMessageFunc(chatId, "⚠️ العنوان قصير جداً أو غير واضح.\n\n🏠 اكتب العنوان بالتفصيل (الشارع - المنطقة - أقرب معلم):");
+                return true;
+            }
+            
             currentOrder.receiverAddress = message;
             delete orderStep[chatId];
             orderData[chatId] = currentOrder;
@@ -628,7 +752,7 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
     {
         id: 11,
         keywords: ['موافق', 'ok', 'oki', 'ابدأ', 'start order', 'yes order'],
-        reply: "🚫 أنت الآن في تسجيل أوردر\n❗ لا تستخدم أرقام القائمة\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل:",
+        reply: "🚫 أنت الآن في تسجيل أوردر\n❗ لا تستخدم أرقام القائمة\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل (مثال: محمد أحمد علي):",
         active: true
     },
     {
@@ -798,7 +922,7 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    // 🔥🔥🔥 الحل 1: منع الأرقام عالميًا أثناء الفلو (قبل أي حاجة تانية)
+    // 🔥🔥🔥 منع الأرقام عالميًا أثناء الفلو
     const numberKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 
                         '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩', '١٠'];
     
@@ -825,7 +949,7 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, blocked: true });
     }
     
-    // 🔥🔥🔥 الحل 2: منع السبام (رسائل متتالية بسرعة)
+    // منع السبام
     if (orderStep[chatId] && orderData[chatId] && Date.now() - orderData[chatId]._timestamp < 1000) {
         console.log(`⚠️ Fast spam detected from ${chatId}`);
         await sendWhatsAppMessage(chatId, "⚠️ من فضلك انتظر قليلاً بين كل رسالة وأخرى.\n\n✏️ أرسل البيانات المطلوبة فقط.");
