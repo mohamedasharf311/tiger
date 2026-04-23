@@ -341,13 +341,10 @@ function isValidName(name) {
     
     const words = name.trim().split(/\s+/);
     
-    // لو الجملة طويلة جداً (أكثر من 6 كلمات)
     if (words.length > 6) return false;
     
-    // لو فيها علامات استفهام
     if (name.includes('؟') || name.includes('?')) return false;
     
-    // لو فيها كلمات دالة على سؤال
     const questionWords = ['ليه', 'مبيكملش', 'لي', 'مش', 'عايز', 'ازاي', 'ايه', 'اي', 'بتاع', 'يعني'];
     for (let word of questionWords) {
         if (name.toLowerCase().includes(word)) return false;
@@ -396,8 +393,9 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
     const currentStep = orderStep[chatId];
     const currentOrder = orderData[chatId] || { _timestamp: Date.now() };
     
-    // بداية الفلو - أول مرة
-    if (!currentStep) {
+    // بداية الفلو - أول مرة (جاية من كلمة "موافق")
+    if (!currentStep || message.toLowerCase().trim() === 'موافق' || message.toLowerCase().trim() === 'ok') {
+        console.log(`🚀 [ORDER FLOW] Starting new order flow for ${chatId}`);
         orderStep[chatId] = "senderName";
         orderData[chatId] = { _timestamp: Date.now() };
         await sendMessageFunc(chatId, "🚫 أنت الآن في تسجيل أوردر\n❗ لا تستخدم أرقام القائمة\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل (مثال: محمد أحمد علي):");
@@ -407,7 +405,6 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
     // معالجة كل خطوة مع Validation
     switch (currentStep) {
         case "senderName":
-            // Validation الاسم
             if (!message || message.trim() === '') {
                 await sendMessageFunc(chatId, "⚠️ اسم الراسل لا يمكن أن يكون فارغًا.\n\n✏️ اكتب اسم الراسل بالكامل (مثال: محمد أحمد علي):");
                 return true;
@@ -424,7 +421,6 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             break;
             
         case "senderPhone":
-            // Validation رقم الهاتف
             if (!message || message.trim() === '') {
                 await sendMessageFunc(chatId, "⚠️ رقم التواصل لا يمكن أن يكون فارغًا.\n\n📞 اكتب رقم مصري صحيح (مثال: 01012345678):");
                 return true;
@@ -441,7 +437,6 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             break;
             
         case "senderAddress":
-            // Validation العنوان
             if (!message || message.trim() === '') {
                 await sendMessageFunc(chatId, "⚠️ عنوان الراسل لا يمكن أن يكون فارغًا.\n\n📍 اكتب العنوان بالتفصيل:");
                 return true;
@@ -458,7 +453,6 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             break;
             
         case "orderContents":
-            // Validation محتويات الأوردر
             if (!message || message.trim() === '') {
                 await sendMessageFunc(chatId, "⚠️ محتويات الأوردر لا يمكن أن تكون فارغة.\n\n📦 اكتب محتويات الأوردر بالتفصيل:");
                 return true;
@@ -475,7 +469,6 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             break;
             
         case "totalAmount":
-            // Validation المبلغ
             if (!message || message.trim() === '') {
                 await sendMessageFunc(chatId, "⚠️ إجمالي المبلغ لا يمكن أن يكون فارغًا.\n\n💰 اكتب المبلغ بالأرقام فقط (مثال: 150):");
                 return true;
@@ -492,7 +485,6 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             break;
             
         case "receiverName":
-            // Validation اسم المستلم
             if (!message || message.trim() === '') {
                 await sendMessageFunc(chatId, "⚠️ اسم المستلم لا يمكن أن يكون فارغًا.\n\n👤 اكتب اسم المستلم بالكامل:");
                 return true;
@@ -509,7 +501,6 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             break;
             
         case "receiverPhone":
-            // Validation رقم المستلم
             if (!message || message.trim() === '') {
                 await sendMessageFunc(chatId, "⚠️ رقم التواصل للمستلم لا يمكن أن يكون فارغًا.\n\n📞 اكتب رقم مصري صحيح:");
                 return true;
@@ -540,7 +531,6 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             break;
             
         case "governorate":
-            // Validation المحافظة
             if (!message || message.trim() === '') {
                 await sendMessageFunc(chatId, "⚠️ المحافظة لا يمكن أن تكون فارغة.\n\n📍 اكتب اسم المحافظة بشكل صحيح:");
                 return true;
@@ -557,7 +547,6 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             break;
             
         case "receiverAddress":
-            // Validation عنوان المستلم
             if (!message || message.trim() === '') {
                 await sendMessageFunc(chatId, "⚠️ عنوان المستلم لا يمكن أن يكون فارغًا.\n\n🏠 اكتب العنوان بالتفصيل:");
                 return true;
@@ -637,6 +626,7 @@ async function handleOrderConfirmation(chatId, message, sendMessageFunc) {
 }
 
 // ==================== AUTO REPLY RULES ====================
+// 🔥 تم إزالة rule رقم 11 (بتاعة "موافق") لأنها كانت بتخرب الفلو
 let autoRules = [
     {
         id: 0,
@@ -748,12 +738,8 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
 📝 اكتب **موافق** للبدء.`,
         active: true
     },
-    {
-        id: 11,
-        keywords: ['موافق', 'ok', 'oki', 'ابدأ', 'start order', 'yes order'],
-        reply: "🚫 أنت الآن في تسجيل أوردر\n❗ لا تستخدم أرقام القائمة\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل (مثال: محمد أحمد علي):",
-        active: true
-    },
+    // 🔥 تم حذف rule رقم 11 (بتاعة "موافق") لأنها كانت بتخرب الفلو
+    
     {
         id: 12,
         keywords: ['vip', 'VIP', 'نفس اليوم', 'توصيل سريع', 'same day', 'express'],
@@ -919,6 +905,16 @@ module.exports = async (req, res) => {
     if (currentMode === "human") {
         console.log(`🤫 Human mode active, bot silent`);
         return res.status(200).json({ success: true, mode: "human", silent: true });
+    }
+    
+    // 🔥🔥🔥 أهم حاجة: تشغيل الفلو عند كلمة "موافق" قبل أي حاجة تانية
+    const lowerMessage = message.toLowerCase().trim();
+    if (lowerMessage === 'موافق' || lowerMessage === 'ok' || lowerMessage === 'oki') {
+        console.log(`🚀 [START ORDER FLOW] User ${chatId} typed "${message}"`);
+        const handled = await handleOrderFlow(chatId, message, sendWhatsAppMessage);
+        if (handled) {
+            return res.status(200).json({ success: true, flow_started: true });
+        }
     }
     
     // 🔥🔥🔥 منع الأرقام عالميًا أثناء الفلو
