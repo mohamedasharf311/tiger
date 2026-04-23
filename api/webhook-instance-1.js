@@ -225,7 +225,6 @@ setInterval(() => {
         }
     }
     
-    // تنظيف بيانات الأوردر القديمة (أكثر من ساعة)
     for (let key in orderData) {
         if (orderData[key] && orderData[key]._timestamp && (now - orderData[key]._timestamp) > 60 * 60 * 1000) {
             delete orderData[key];
@@ -247,13 +246,11 @@ async function setAutoTimeout(chatId) {
             delete timeouts[chatId];
             console.log(`🤖 Auto timeout: User ${chatId} switched back to BOT mode after 30 minutes`);
         }
-        // حذف بيانات الأوردر بعد انتهاء المهلة
         delete orderData[chatId];
         delete orderStep[chatId];
     }, TIMEOUT_DURATION);
 }
 
-// 🔥 دالة لكشف إذا كانت الرسالة من المسؤول أو تحتوي على trigger
 function isMessageFromAdmin(message, isFromMe, chatId) {
     let cleanChatId = chatId.replace('@c.us', '').replace('@lid', '').replace('+', '').replace(/[^0-9]/g, '');
     let cleanAdminPhone = ADMIN_PHONE;
@@ -261,12 +258,12 @@ function isMessageFromAdmin(message, isFromMe, chatId) {
     const lowerMsg = message.toLowerCase();
 
     if (STOP_TRIGGERS.some(trigger => lowerMsg.includes(trigger.toLowerCase()))) {
-        console.log(`🔥 Manual stop trigger detected in incoming message.`);
+        console.log(`🔥 Manual stop trigger detected`);
         return true;
     }
 
     if (cleanChatId === cleanAdminPhone) {
-        console.log(`✅ Admin detected by phone number: ${ADMIN_PHONE}`);
+        console.log(`✅ Admin detected by phone number`);
         return true;
     }
 
@@ -310,7 +307,6 @@ async function checkFirebaseForAdminMessage(chatId, cleanNumber) {
     }
 }
 
-// 🔥🔥🔥 دالة إنشاء ملخص الأوردر للتأكيد
 function createOrderSummary(order) {
     return `📦 **تأكيد طلب الشحن - النمر للشحن** 📦
 
@@ -340,45 +336,19 @@ function createOrderSummary(order) {
 ━━━━━━━━━━━━━━━━━━━━━`;
 }
 
-// 🔥🔥🔥 دالة معالجة فلو إنشاء الأوردر خطوة بخطوة
 async function handleOrderFlow(chatId, message, sendMessageFunc) {
     const currentStep = orderStep[chatId];
     const currentOrder = orderData[chatId] || { _timestamp: Date.now() };
-    
-    // 🔥🔥🔥 أهم حاجة: تجاهل أي رسالة فيها أرقام من 1-9 لو احنا في الفلو
-    const numberKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 
-                        '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩', '١٠'];
-    
-    if (numberKeys.includes(message.trim()) && currentStep) {
-        console.log(`⚠️ User pressed number ${message} during order flow, ignoring`);
-        
-        const stepQuestions = {
-            senderName: "✏️ من فضلك اكتب **اسم الراسل** بالكامل:",
-            senderPhone: "📞 من فضلك اكتب **رقم التواصل** للراسل:",
-            senderAddress: "📍 من فضلك اكتب **عنوان الراسل** بالتفصيل:",
-            orderContents: "📦 من فضلك اكتب **محتويات الأوردر**:",
-            totalAmount: "💰 من فضلك اكتب **إجمالي المبلغ**:",
-            receiverName: "👤 من فضلك اكتب **اسم المستلم** بالكامل:",
-            receiverPhone: "📞 من فضلك اكتب **رقم التواصل** للمستلم:",
-            receiverAltPhone: "📞 من فضلك اكتب **رقم آخر** للمستلم (اختياري):",
-            governorate: "📍 من فضلك اكتب **المحافظة**:",
-            receiverAddress: "🏠 من فضلك اكتب **عنوان المستلم** بالتفصيل:"
-        };
-        
-        const question = stepQuestions[currentStep] || "✏️ من فضلك اكتب البيانات المطلوبة:";
-        await sendMessageFunc(chatId, `⚠️ يرجى كتابة البيانات المطلوبة (اسم - عنوان - رقم) وليس أرقام القائمة.\n\n${question}`);
-        return true;
-    }
     
     // بداية الفلو - أول مرة
     if (!currentStep) {
         orderStep[chatId] = "senderName";
         orderData[chatId] = { _timestamp: Date.now() };
-        await sendMessageFunc(chatId, "📝 تمام يا فندم 👌 نبدأ تسجيل الأوردر\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل:");
+        await sendMessageFunc(chatId, "🚫 أنت الآن في تسجيل أوردر\n❗ لا تستخدم أرقام القائمة\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل:");
         return true;
     }
     
-    // معالجة كل خطوة حسب المرحلة
+    // معالجة كل خطوة
     switch (currentStep) {
         case "senderName":
             if (!message || message.trim() === '') {
@@ -387,7 +357,7 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             }
             currentOrder.senderName = message;
             orderStep[chatId] = "senderPhone";
-            await sendMessageFunc(chatId, "📞 ممتاز ✏️ من فضلك اكتب **رقم التواصل** للراسل:");
+            await sendMessageFunc(chatId, "📞 ممتاز\n\n✏️ من فضلك اكتب **رقم التواصل** للراسل:");
             break;
             
         case "senderPhone":
@@ -397,7 +367,7 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             }
             currentOrder.senderPhone = message;
             orderStep[chatId] = "senderAddress";
-            await sendMessageFunc(chatId, "📍 تمام ✏️ من فضلك اكتب **عنوان الراسل** بالتفصيل (الشارع - المنطقة - أقرب معلم):");
+            await sendMessageFunc(chatId, "📍 ممتاز\n\n✏️ من فضلك اكتب **عنوان الراسل** بالتفصيل (الشارع - المنطقة - أقرب معلم):");
             break;
             
         case "senderAddress":
@@ -407,7 +377,7 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             }
             currentOrder.senderAddress = message;
             orderStep[chatId] = "orderContents";
-            await sendMessageFunc(chatId, "📦 ممتاز ✏️ من فضلك اكتب **محتويات الأوردر** (نوع البضاعة - الوزن التقريبي):");
+            await sendMessageFunc(chatId, "📦 ممتاز\n\n✏️ من فضلك اكتب **محتويات الأوردر** (نوع البضاعة - الوزن التقريبي):");
             break;
             
         case "orderContents":
@@ -417,7 +387,7 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             }
             currentOrder.orderContents = message;
             orderStep[chatId] = "totalAmount";
-            await sendMessageFunc(chatId, "💰 تمام ✏️ من فضلك اكتب **إجمالي المبلغ** المستلم (بالجنيه المصري):");
+            await sendMessageFunc(chatId, "💰 ممتاز\n\n✏️ من فضلك اكتب **إجمالي المبلغ** المستلم (بالجنيه المصري):");
             break;
             
         case "totalAmount":
@@ -427,7 +397,7 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             }
             currentOrder.totalAmount = message;
             orderStep[chatId] = "receiverName";
-            await sendMessageFunc(chatId, "👤 ممتاز ✏️ من فضلك اكتب **اسم المستلم** بالكامل:");
+            await sendMessageFunc(chatId, "👤 ممتاز\n\n✏️ من فضلك اكتب **اسم المستلم** بالكامل:");
             break;
             
         case "receiverName":
@@ -437,7 +407,7 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             }
             currentOrder.receiverName = message;
             orderStep[chatId] = "receiverPhone";
-            await sendMessageFunc(chatId, "📞 تمام ✏️ من فضلك اكتب **رقم التواصل** للمستلم:");
+            await sendMessageFunc(chatId, "📞 ممتاز\n\n✏️ من فضلك اكتب **رقم التواصل** للمستلم:");
             break;
             
         case "receiverPhone":
@@ -457,7 +427,7 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
                 currentOrder.receiverAltPhone = "لا يوجد";
             }
             orderStep[chatId] = "governorate";
-            await sendMessageFunc(chatId, "📍 تمام ✏️ من فضلك اكتب **المحافظة** (مثال: الإسكندرية - القاهرة - الجيزة):");
+            await sendMessageFunc(chatId, "📍 ممتاز\n\n✏️ من فضلك اكتب **المحافظة** (مثال: الإسكندرية - القاهرة - الجيزة):");
             break;
             
         case "governorate":
@@ -467,7 +437,7 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             }
             currentOrder.governorate = message;
             orderStep[chatId] = "receiverAddress";
-            await sendMessageFunc(chatId, "🏠 ممتاز ✏️ من فضلك اكتب **عنوان المستلم** بالتفصيل (الشارع - المنطقة - أقرب معلم):");
+            await sendMessageFunc(chatId, "🏠 ممتاز\n\n✏️ من فضلك اكتب **عنوان المستلم** بالتفصيل (الشارع - المنطقة - أقرب معلم):");
             break;
             
         case "receiverAddress":
@@ -476,7 +446,6 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
                 return true;
             }
             currentOrder.receiverAddress = message;
-            // انتهى جمع البيانات - نعرض ملخص التأكيد
             delete orderStep[chatId];
             orderData[chatId] = currentOrder;
             
@@ -491,12 +460,10 @@ async function handleOrderFlow(chatId, message, sendMessageFunc) {
             break;
     }
     
-    // حفظ البيانات المحدثة
     orderData[chatId] = currentOrder;
     return true;
 }
 
-// 🔥🔥🔥 دالة معالجة تأكيد الأوردر أو تعديله
 async function handleOrderConfirmation(chatId, message, sendMessageFunc) {
     const currentOrder = orderData[chatId];
     
@@ -506,12 +473,9 @@ async function handleOrderConfirmation(chatId, message, sendMessageFunc) {
     
     const lowerMsg = message.toLowerCase().trim();
     
-    // تأكيد الأوردر
     if (lowerMsg === 'نعم' || lowerMsg === 'yes' || lowerMsg === 'تم') {
-        // هنا تقدر تحفظ الأوردر في Firebase أو ترسله للإدارة
         console.log(`✅ Order confirmed for ${chatId}:`, currentOrder);
         
-        // إرسال رسالة التأكيد النهائية
         const finalMessage = `✅ **تم تأكيد طلب الشحن بنجاح!** ✅
 
 📦 رقم الطلب: #${Date.now().toString().slice(-8)}
@@ -525,20 +489,17 @@ async function handleOrderConfirmation(chatId, message, sendMessageFunc) {
         
         await sendMessageFunc(chatId, finalMessage);
         
-        // تنظيف البيانات بعد التأكيد
         delete orderData[chatId];
         delete orderStep[chatId];
         return true;
     }
     
-    // تعديل الأوردر
     else if (lowerMsg === 'تعديل' || lowerMsg === 'edit') {
         orderStep[chatId] = "senderName";
-        await sendMessageFunc(chatId, "✏️ تم تفعيل وضع التعديل. هتسألك الخطوات من الأول.\n\n📝 من فضلك اكتب **اسم الراسل** بالكامل:");
+        await sendMessageFunc(chatId, "✏️ تم تفعيل وضع التعديل.\n\n🚫 أنت الآن في تسجيل أوردر\n❗ لا تستخدم أرقام القائمة\n\n📝 من فضلك اكتب **اسم الراسل** بالكامل:");
         return true;
     }
     
-    // إلغاء الأوردر
     else if (lowerMsg === 'إلغاء' || lowerMsg === 'cancel' || lowerMsg === 'الغاء') {
         delete orderData[chatId];
         delete orderStep[chatId];
@@ -546,7 +507,6 @@ async function handleOrderConfirmation(chatId, message, sendMessageFunc) {
         return true;
     }
     
-    // رسالة غير مفهومة أثناء التأكيد
     else {
         await sendMessageFunc(chatId, "⚠️ لم أفهم الرد.\n\n📝 اكتب **نعم** لتأكيد الأوردر\n✏️ اكتب **تعديل** لتغيير البيانات\n❌ اكتب **إلغاء** للخروج");
         return true;
@@ -564,17 +524,14 @@ let autoRules = [
     {
         id: 1,
         keywords: ['1', '١', 'داخل الاسكندرية', 'داخل الإسكندرية', 'اسكندرية', 'الإسكندرية', 'اسعار اسكندرية', 'اسعار داخل'],
-        reply: `📍 أسعار الشحن داخل الإسكندرية / Alexandria Shipping Prices:
+        reply: `📍 أسعار الشحن داخل الإسكندرية:
 
-💰 60 جنيه / EGP:
-داخلي - جميع أحياء الإسكندرية
+💰 60 جنيه: داخلي - جميع أحياء الإسكندرية
+💰 80 جنيه: خارجي - ضواحي الإسكندرية
 
-💰 80 جنيه / EGP:
-خارجي - ضواحي الإسكندرية
+📌 البيك أب: 10 جنيه
 
-📌 ملاحظة: البيك أب 10 جنيه على كل أوردر
-
-للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+للرجوع للقائمة اكتب 'قائمة'`,
         active: true
     },
     {
@@ -588,19 +545,19 @@ let autoRules = [
 💰 180 جنيه: البحر الأحمر، الوادي الجديد، أسوان، قنا
 💰 200 جنيه: جنوب سيناء، شمال سيناء، الأقصر
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+للرجوع للقائمة اكتب 'قائمة'`,
         active: true
     },
     {
         id: 3,
-        keywords: ['3', '٣', 'مدة التوصيل', 'التوصيل', 'المدة', 'وقت', 'كم يوم', 'delivery time'],
+        keywords: ['3', '٣', 'مدة التوصيل', 'التوصيل', 'المدة', 'وقت', 'delivery time'],
         reply: `⏱️ مدة التوصيل:
 
 • داخل الوجه البحري: خلال 72 ساعة
 • وجه قبلي: خلال 5 أيام
 • التحصيل: خلال 24 ساعة
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+للرجوع للقائمة اكتب 'قائمة'`,
         active: true
     },
     {
@@ -609,11 +566,11 @@ let autoRules = [
         reply: `💰 طرق الدفع:
 
 • كاش 💵
-• محفظة 📱 (فودافون كاش - انستاباي)
+• محفظة 📱
 • إنستاباي 🏦
 • تحويل بنكي 💳
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+للرجوع للقائمة اكتب 'قائمة'`,
         active: true
     },
     {
@@ -623,34 +580,27 @@ let autoRules = [
 
 ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+للرجوع للقائمة اكتب 'قائمة'`,
         active: true
     },
     {
         id: 6,
         keywords: ['6', '٦', 'خدمة العملاء', 'خدمه العملاء', 'دعم', 'تكلم مع موظف', 'customer service', 'support', 'agent', 'human'],
-        reply: "👤 تم تحويل محادثتك إلى خدمة العملاء. سيتم الرد عليك يدوياً في أقرب وقت.\n\nYour conversation has been transferred to customer service.",
+        reply: "👤 تم تحويل محادثتك إلى خدمة العملاء. سيتم الرد عليك يدوياً.",
         active: true
     },
     {
         id: 7,
         keywords: ['7', '٧', 'باقة', 'باقات', 'الباقات', 'package', 'packages', 'new prices'],
-        reply: `🟡 أسعار الشحنة الفردية:
-• من الإبراهيمية للبحري: 60 جنيه
-• من الإبراهيمية لسيدي بشر: 65 جنيه
-• العجمي: 75 جنيه
-• العامرية - برج العرب: 90 جنيه
+        reply: `🟡 الأسعار الجديدة:
 
-📌 البيك أب: 10 جنيه
-
-🟡 باقات الشحن:
-• 10 أوردرات: 60 جنيه لكل أوردر
-• 20 أوردر: 55 جنيه لكل أوردر
-• 50 أوردر: 30 جنيه لكل أوردر
+• فردي: 60-90 جنيه حسب المنطقة
+• باقات: 10 أوردرات (60ج)، 20 أوردر (55ج)، 50 أوردر (30ج)
+• البيك أب: 10 جنيه
 
 🌐 التواصل: ${companyData.contactInfo.phones.join(' | ')}
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+للرجوع للقائمة اكتب 'قائمة'`,
         active: true
     },
     {
@@ -672,13 +622,13 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
 
 سيتم إرشادك خطوة بخطوة لتسجيل بيانات الأوردر.
 
-📝 اكتب **موافق** للبدء في تسجيل طلب الشحن الجديد.`,
+📝 اكتب **موافق** للبدء.`,
         active: true
     },
     {
         id: 11,
         keywords: ['موافق', 'ok', 'oki', 'ابدأ', 'start order', 'yes order'],
-        reply: "📝 تمام يا فندم 👌 نبدأ تسجيل الأوردر\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل:",
+        reply: "🚫 أنت الآن في تسجيل أوردر\n❗ لا تستخدم أرقام القائمة\n\n✏️ من فضلك اكتب **اسم الراسل** بالكامل:",
         active: true
     },
     {
@@ -688,19 +638,15 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
 
 • متاحة داخل الإسكندرية فقط
 • السعر يبدأ من 150 جنيه
-• للطلب، تواصل مع خدمة العملاء (اضغط 6)
+• للطلب: اضغط 6
 
-للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+للرجوع للقائمة اكتب 'قائمة'`,
         active: true
     },
     {
         id: 13,
         keywords: ['شكرا', 'ممتاز', 'تمام', 'شكراً', 'تسلم', 'thank', 'thanks', 'great'],
-        reply: `🎉 شكراً لك على تواصلك مع النمر للشحن!
-
-نحن في خدمتك دائماً. إذا احتجت أي مساعدة أخرى، فقط اكتب 'قائمة'.
-
-نتمنى لك يوماً سعيداً! 🐯`,
+        reply: `🎉 شكراً لك! نحن في خدمتك دائماً. 🐯`,
         active: true
     },
     {
@@ -710,9 +656,7 @@ ${companyData.terms.map((t, i) => `${i+1}. ${t}`).join('\n')}
 
 • الموقع: ${companyData.contactInfo.website}
 • العنوان: ${companyData.contactInfo.address}
-• الهاتف: ${companyData.contactInfo.phones.join(' | ')}
-
-للرجوع للقائمة الرئيسية اكتب 'قائمة'`,
+• الهاتف: ${companyData.contactInfo.phones.join(' | ')}`,
         active: true
     }
 ];
@@ -797,9 +741,7 @@ module.exports = async (req, res) => {
             instance_id: INSTANCE.id,
             phone: INSTANCE.phoneNumber,
             admin_phone: ADMIN_PHONE,
-            stop_triggers: STOP_TRIGGERS,
             storage: 'Firebase',
-            message: 'Webhook is working - Professional Order Flow Enabled!',
             timestamp: new Date().toISOString()
         });
     }
@@ -856,10 +798,41 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human", silent: true });
     }
     
-    // 🔥🔥🔥 الأولوية القصوى: فلو إنشاء الأوردر (Step by Step)
-    // ده لازم يبقى قبل أي حاجة تانية عشان الأرقام متخربش الفلو
+    // 🔥🔥🔥 الحل 1: منع الأرقام عالميًا أثناء الفلو (قبل أي حاجة تانية)
+    const numberKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 
+                        '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩', '١٠'];
     
-    // الحالة 1: العميل في مرحلة إنشاء أوردر (عنده orderStep)
+    if (orderStep[chatId] && numberKeys.includes(message.trim())) {
+        console.log(`🚫 Blocked number ${message} during order flow`);
+        
+        const stepQuestions = {
+            senderName: "✏️ من فضلك اكتب **اسم الراسل** بالكامل:",
+            senderPhone: "📞 من فضلك اكتب **رقم التواصل** للراسل:",
+            senderAddress: "📍 من فضلك اكتب **عنوان الراسل** بالتفصيل:",
+            orderContents: "📦 من فضلك اكتب **محتويات الأوردر**:",
+            totalAmount: "💰 من فضلك اكتب **إجمالي المبلغ**:",
+            receiverName: "👤 من فضلك اكتب **اسم المستلم** بالكامل:",
+            receiverPhone: "📞 من فضلك اكتب **رقم التواصل** للمستلم:",
+            receiverAltPhone: "📞 من فضلك اكتب **رقم آخر** للمستلم (اختياري):",
+            governorate: "📍 من فضلك اكتب **المحافظة**:",
+            receiverAddress: "🏠 من فضلك اكتب **عنوان المستلم** بالتفصيل:"
+        };
+        
+        const question = stepQuestions[orderStep[chatId]] || "✏️ من فضلك اكتب البيانات المطلوبة:";
+        
+        await sendWhatsAppMessage(chatId, `⚠️ **أنت الآن في تسجيل أوردر**\n❗ لا تستخدم أرقام القائمة\n\n${question}`);
+        
+        return res.status(200).json({ success: true, blocked: true });
+    }
+    
+    // 🔥🔥🔥 الحل 2: منع السبام (رسائل متتالية بسرعة)
+    if (orderStep[chatId] && orderData[chatId] && Date.now() - orderData[chatId]._timestamp < 1000) {
+        console.log(`⚠️ Fast spam detected from ${chatId}`);
+        await sendWhatsAppMessage(chatId, "⚠️ من فضلك انتظر قليلاً بين كل رسالة وأخرى.\n\n✏️ أرسل البيانات المطلوبة فقط.");
+        return res.status(200).json({ success: true, spam: true });
+    }
+    
+    // الأولوية: فلو إنشاء الأوردر
     if (orderStep[chatId]) {
         console.log(`🎯 [ORDER FLOW] User in step: ${orderStep[chatId]}`);
         const handled = await handleOrderFlow(chatId, message, sendWhatsAppMessage);
@@ -868,7 +841,7 @@ module.exports = async (req, res) => {
         }
     }
     
-    // الحالة 2: العميل في مرحلة تأكيد الأوردر (عنده orderData وملوش orderStep)
+    // مرحلة تأكيد الأوردر
     if (orderData[chatId] && !orderStep[chatId]) {
         console.log(`🎯 [ORDER CONFIRMATION] User confirming order`);
         const handled = await handleOrderConfirmation(chatId, message, sendWhatsAppMessage);
@@ -877,14 +850,13 @@ module.exports = async (req, res) => {
         }
     }
     
-    // فحص طلب خدمة العملاء
+    // خدمة العملاء
     const isCustomerServiceRequest = (
         message.trim() === '6' || message.trim() === '٦' ||
         message.toLowerCase().includes('خدمة العملاء') ||
         message.toLowerCase().includes('customer service') ||
         message.toLowerCase().includes('support') ||
-        message.toLowerCase().includes('agent') ||
-        message.toLowerCase().includes('human')
+        message.toLowerCase().includes('agent')
     );
     
     if (isCustomerServiceRequest) {
@@ -898,7 +870,7 @@ module.exports = async (req, res) => {
         return res.status(200).json({ success: true, mode: "human" });
     }
     
-    // فحص طلب الرجوع للقائمة
+    // الرجوع للقائمة
     const isMenuRequest = message.toLowerCase().includes('menu') || message.includes('قائمة');
     if (isMenuRequest && currentMode === "human") {
         if (timeouts[chatId]) {
@@ -909,7 +881,7 @@ module.exports = async (req, res) => {
         console.log(`🤖 BOT REACTIVATED`);
     }
     
-    // البحث عن رد تلقائي عادي
+    // الردود التلقائية العادية
     const autoReply = findAutoReply(message);
     
     if (autoReply) {
