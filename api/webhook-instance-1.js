@@ -183,7 +183,7 @@ const companyData = {
 const INSTANCE_ID = "instance3554";
 const INSTANCE = {
     id: INSTANCE_ID,
-    token: "yzWzEjmxZpbifuOx6lWafYT3Ng69gaFpJGAdTsVc6N",
+    token: "LVQSwwsO4HiwnZKkDSSFpVIS0HHuF1AtSfOAOCTl9k",
     name: "الرقم الأول - النمر للشحن",
     phoneNumber: "201553999935",
     active: true
